@@ -10,6 +10,8 @@ export interface TenderAnalysisJobPayload {
   documentId: string;
   userId: string;
   skipFastPhase?: boolean;
+  /** Force re-extraction of parameters (re-analyze). */
+  refresh?: boolean;
 }
 
 export interface ReportGenerationJobPayload {

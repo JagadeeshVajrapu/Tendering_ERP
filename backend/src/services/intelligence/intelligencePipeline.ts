@@ -32,9 +32,15 @@ import { candidateDetectionService } from '../candidateDetection/candidateDetect
 import { nitRuleExtractionService } from '../nitExtraction/nitRuleExtractionService';
 import { fieldValidationService } from '../validation/fieldValidationService';
 import { openAiVerificationService } from '../ai/openAiVerificationService';
+import { isQuotaBlocked, markQuotaExceeded } from '../ai/aiQuotaGuard';
+import { isOpenAIApiError } from '../ai/openaiClient';
 import { confidenceScoringService } from '../confidence/confidenceScoringService';
 import { masterDatasetService } from '../masterDataset/masterDatasetService';
-import { tenderProductionPipeline } from '../production/tenderProductionPipeline';
+import { canonicalTenderPipeline } from '../production/canonicalTenderPipeline';
+import {
+  buildIntelligencePayloadFromCanonical,
+  buildLegacyAnalysisFromMasterDataset,
+} from '../production/canonicalIntelligenceBuilder';
 import { TenderMasterDataset } from '../../models/TenderMasterDataset';
 import { tenderRiskAnalysisService } from '../risk/tenderRiskAnalysisService';
 import { tenderExecutiveRecommendationService } from '../recommendation/tenderExecutiveRecommendationService';
@@ -46,6 +52,7 @@ export interface IntelligenceJobPayload {
   tenderId: string;
   documentId: string;
   userId: string;
+  refresh?: boolean;
 }
 
 function mergedToLegacyAnalysis(merged: MergedIntelligence): ITenderAnalysisData {
@@ -205,346 +212,117 @@ class IntelligencePipeline {
       document.pageCount = pages.length;
       await document.save();
 
-      // Production path: Label-Value → Store → Map → Validate (canonical fields)
+      // Canonical 12-step pipeline (preview → full document)
       job.status = 'analyzing';
       job.progress = 12;
+      job.pageCount = pages.length;
       await job.save();
       this.emitProgress(payload.tenderId, payload.jobId, job.status, 12, payload.queueJobId);
 
-      const productionExtraction = await tenderProductionPipeline.run({
+      const pipelineCtx = {
         documentId: document._id,
         tenderId: job.tenderId,
         jobId: job._id,
         pages,
-      });
-      console.log('[ProductionPipeline]', {
-        steps: productionExtraction.steps,
-        labelPairs: productionExtraction.labelValuePairCount,
-        mapped: productionExtraction.mappedFieldCount,
-        locatorFields: productionExtraction.locatorFieldCount,
-        validation: productionExtraction.validation,
-      });
-      timer.mark('production_label_value_mapping');
-
-      job.pageCount = pages.length;
-      job.status = 'chunking';
-      job.progress = 15;
-      await job.save();
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 15, payload.queueJobId);
-
-      const { chunks, artifacts: chunkArtifacts } = await documentChunkProcessorService.splitStoreAndProcess(
-        pages,
-        {
-          documentId: document._id,
-          tenderId: job.tenderId,
-          jobId: job._id,
-        }
-      );
-
-      job.chunkCount = chunkArtifacts.statistics.totalChunks;
-      job.chunksProcessed = chunkArtifacts.statistics.chunksProcessed;
-      job.chunkStatistics = chunkArtifacts.statistics;
-      job.status = 'analyzing';
-      job.progress = 25;
-      await job.save();
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 25, payload.queueJobId);
-      timer.mark('chunking');
-
-      // Candidate detection — scan OCR before OpenAI / rule extraction
-      job.status = 'analyzing';
-      job.progress = 28;
-      await job.save();
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 28, payload.queueJobId);
-
-      const candidateResult = await candidateDetectionService.detectAndStore(pages, {
-        documentId: document._id,
-        tenderId: job.tenderId,
-        jobId: job._id,
-      });
-      timer.mark('candidate_detection');
-
-      const dbRules = await ExtractionRule.find({ active: true }).sort({ priority: -1, updatedAt: -1 });
-      const nitRuleResult = await nitRuleExtractionService.extractAndStore(pages, dbRules, {
-        documentId: document._id,
-        tenderId: job.tenderId,
-        jobId: job._id,
-      });
-      timer.mark('nit_rule_extraction');
-
-      const locatorForValidation = await DocumentLocatorField.find({ documentId: document._id });
-      const validationFieldMap = new Map<string, { fieldName: string; extractedValue: string }>();
-
-      for (const f of nitRuleResult.extractedFields) {
-        validationFieldMap.set(f.fieldName.toLowerCase(), {
-          fieldName: f.fieldName,
-          extractedValue: f.extractedValue,
-        });
-      }
-      for (const f of locatorForValidation) {
-        validationFieldMap.set(f.fieldName.toLowerCase(), {
-          fieldName: f.fieldName,
-          extractedValue: f.value,
-        });
-      }
-
-      const validationResult = await fieldValidationService.validateAndStore(
-        Array.from(validationFieldMap.values()),
-        {
-          documentId: document._id,
-          tenderId: job.tenderId,
-          jobId: job._id,
-        },
-        candidateResult.candidates.map((c) => ({
-          fieldName: c.fieldName,
-          candidateValue: c.candidateValue,
-        }))
-      );
-      timer.mark('field_validation');
-
-      let openAiVerificationResult = null;
-      if (env.openai.apiKey && env.openai.enabled) {
-        job.progress = 29;
-        await job.save();
-        openAiVerificationResult = await openAiVerificationService.verifyAndStore(
-          nitRuleResult.extractedFields.map((f) => ({
-            fieldName: f.fieldName,
-            extractedValue: f.extractedValue,
-            sourcePage: f.sourcePage,
-            sourceText: f.sourceText,
-          })),
-          {
-            documentId: document._id,
-            tenderId: job.tenderId,
-            jobId: job._id,
-          },
-          candidateResult.candidates.map((c) => ({
-            fieldName: c.fieldName,
-            extractedValue: c.candidateValue,
-            sourcePage: c.sourcePage,
-            sourceText: c.sourceText,
-          }))
-        );
-        timer.mark('openai_verification');
-      }
-
-      const confidenceInputs = confidenceScoringService.buildInputsFromRecords(
-        nitRuleResult.extractedFields.map((f) => ({
-          fieldName: f.fieldName,
-          extractedValue: f.extractedValue,
-          sourcePage: f.sourcePage,
-          sourceText: f.sourceText,
-          extractionMethod: f.extractionMethod,
-        })),
-        validationResult.validations.map((v) => ({
-          fieldName: v.fieldName,
-          value: v.value,
-          valid: v.valid,
-          reason: v.reason,
-        })),
-        (openAiVerificationResult?.verifiedFields || []).map((v) => ({
-          fieldName: v.fieldName,
-          extractedValue: v.extractedValue,
-          verifiedValue: v.verifiedValue,
-          confidence: v.confidence,
-          sourcePage: v.sourcePage,
-          sourceText: v.sourceText,
-          correctness: v.correctness,
-          filledMissing: v.filledMissing,
-        }))
-      );
-
-      const confidenceResult = await confidenceScoringService.scoreAndStore(confidenceInputs, {
-        documentId: document._id,
-        tenderId: job.tenderId,
-        jobId: job._id,
-      });
-      timer.mark('confidence_scoring');
-
-      const masterDatasetResult = await masterDatasetService.buildAndStore({
-        tenderId: job.tenderId,
-        documentId: document._id,
-        jobId: job._id,
-      });
-      timer.mark('master_dataset');
-
-      const riskAnalysisResult = await tenderRiskAnalysisService.analyzeAndStore({
-        tenderId: job.tenderId,
-        documentId: document._id,
-        jobId: job._id,
-      });
-      timer.mark('risk_analysis');
-
-      const executiveRecommendationResult = await tenderExecutiveRecommendationService.generateAndStore({
-        tenderId: job.tenderId,
-        documentId: document._id,
-        jobId: job._id,
-      });
-      timer.mark('executive_recommendation');
-
-      // Consultant pipeline Steps 1–9 (no direct AI extraction)
-      job.progress = 30;
-      await IntelligenceJob.findByIdAndUpdate(job._id, { progress: 30, status: 'analyzing' });
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 30, payload.queueJobId);
-
-      let lastProgressDbWrite = 0;
-      const consultantResult = await consultantIntelligencePipeline.run(
-        pages,
-        async (fieldPct) => {
-          const progress = 30 + Math.round((fieldPct / 100) * 42);
-          job.progress = progress;
-          job.status = 'analyzing';
-          const now = Date.now();
-          if (now - lastProgressDbWrite >= 400) {
-            lastProgressDbWrite = now;
-            await IntelligenceJob.findByIdAndUpdate(job._id, { progress, status: 'analyzing' });
-          }
-          this.emitProgress(payload.tenderId, payload.jobId, 'analyzing', progress, payload.queueJobId);
-        },
-        { chunkArtifacts }
-      );
-      await IntelligenceJob.findByIdAndUpdate(job._id, {
-        progress: job.progress,
-        status: 'analyzing',
-      });
-
-      const {
-        productionFields,
-        merged: validatedMerged,
-        verifiedNit,
-        nitTables,
-        mdReport,
-        summaries: finalSummaries,
-        documentUnderstanding,
-      } = consultantResult;
-      const documentMap = documentUnderstanding.documentMap;
-      timer.mark('consultant_pipeline');
-
-      job.status = 'validating';
-      job.progress = 78;
-      await job.save();
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 78, payload.queueJobId);
-
-      const previewPayload = {
-        tenderId: job.tenderId,
-        documentId: document._id,
-        jobId: job._id,
-        analyzedBy: new Types.ObjectId(payload.userId),
-        pageCount: pages.length,
-        chunkCount: chunkArtifacts.statistics.totalChunks,
-        chunkStatistics: chunkArtifacts.statistics,
-        candidateStatistics: candidateResult.statistics,
-        nitRuleExtraction: {
-          successfulMatches: nitRuleResult.successfulMatches.length,
-          failedMatches: nitRuleResult.failedMatches.length,
-          extractedFields: nitRuleResult.extractedFields,
-        },
-        fieldValidation: {
-          totalFields: validationResult.statistics.totalFields,
-          validCount: validationResult.statistics.validCount,
-          invalidCount: validationResult.statistics.invalidCount,
-          validations: validationResult.validations,
-        },
-        openAiVerification: openAiVerificationResult
-          ? {
-              model: openAiVerificationResult.statistics.model,
-              verifiedFields: openAiVerificationResult.verifiedFields.map((v) => ({
-                fieldName: v.fieldName,
-                verifiedValue: v.verifiedValue,
-                confidence: v.confidence,
-              })),
-              missingFieldsFilled: openAiVerificationResult.missingFieldsFilled,
-              statistics: openAiVerificationResult.statistics,
-            }
-          : null,
-        confidenceScoring: {
-          averageConfidence: confidenceResult.statistics.averageConfidence,
-          lowConfidenceCount: confidenceResult.statistics.lowConfidenceCount,
-          lowConfidenceThreshold: confidenceResult.statistics.lowConfidenceThreshold,
-          fields: confidenceResult.fields.map((f) => ({
-            fieldName: f.fieldName,
-            value: f.value,
-            confidence: f.confidence,
-            confidenceReason: f.confidenceReason,
-            lowConfidence: f.lowConfidence,
-          })),
-          lowConfidenceFields: confidenceResult.lowConfidenceFields.map((f) => ({
-            fieldName: f.fieldName,
-            value: f.value,
-            confidence: f.confidence,
-            confidenceReason: f.confidenceReason,
-          })),
-        },
-        masterDataset: {
-          populatedFields: masterDatasetResult.statistics.populatedFields,
-          averageConfidence: masterDatasetResult.statistics.averageConfidence,
-          dataset: masterDatasetResult.dataset,
-        },
-        masterDatasetRiskAnalysis: {
-          overallLevel: riskAnalysisResult.overallLevel,
-          risks: riskAnalysisResult.risks,
-        },
-        executiveRecommendation: {
-          recommendation: executiveRecommendationResult.recommendation,
-          executiveSummary: executiveRecommendationResult.executiveSummary,
-          dataQualityScore: executiveRecommendationResult.dataQualityScore,
-        },
-        phase: 'processing' as const,
-        merged: validatedMerged,
-        documentMap,
-        verifiedNit,
-        productionFields,
-        nitTables,
-        executiveBullets: finalSummaries.executiveBullets,
-        mdReport,
-        scopeSummary: finalSummaries.scopeSummary || '',
-        eligibilitySummary: finalSummaries.eligibilitySummary || '',
-        timelineSummary: finalSummaries.timelineSummary || '',
-        financialSummary: finalSummaries.financialSummary || '',
-        riskSummary: finalSummaries.riskSummary || '',
-        riskAnalysis: {
-          items: consultantResult.riskAnalysis.items,
-          overallLevel: consultantResult.riskAnalysis.overallLevel,
-          prerequisites: consultantResult.riskAnalysis.prerequisites,
-          processingTimeMs: consultantResult.riskAnalysis.processingTimeMs,
-        },
-        recommendation: finalSummaries.recommendation,
-        aiModel: 'consultant-intelligence-pipeline',
       };
 
-      const preview = await TenderIntelligence.findOneAndUpdate(
-        { tenderId: job.tenderId, jobId: job._id },
-        { $set: previewPayload },
-        { upsert: true, new: true }
-      );
-      this.emitPreview(payload.tenderId, payload.jobId, 78, preview.toObject());
+      const onPipelineProgress = async (
+        pct: number,
+        step?: import('../production/canonicalTenderPipeline').CanonicalPipelineStep
+      ) => {
+        job.progress = Math.min(98, pct);
+        if (step === 'master_dataset' || step === 'nit_analysis') {
+          job.status = 'merging';
+        } else if (
+          step === 'requirement_discovery' ||
+          step === 'checklist' ||
+          step === 'feasibility_report'
+        ) {
+          job.status = 'generating_report';
+        } else {
+          job.status = 'analyzing';
+        }
+        await IntelligenceJob.findByIdAndUpdate(job._id, {
+          progress: job.progress,
+          status: job.status,
+        });
+        this.emitProgress(
+          payload.tenderId,
+          payload.jobId,
+          job.status,
+          job.progress,
+          payload.queueJobId
+        );
+      };
+
+      const usePreview = pages.length > 15 && !payload.refresh;
+      let canonicalResult = await canonicalTenderPipeline.run(pipelineCtx, {
+        maxPages: usePreview ? 15 : undefined,
+        refresh: payload.refresh,
+        onProgress: async (pct, step) => onPipelineProgress(pct, step),
+        onPreview: async (preview) => {
+          this.emitPreview(payload.tenderId, payload.jobId, 85, {
+            phase: 'nit_preview',
+            nitReady: preview.nitAnalysis.statistics.populatedFields > 0,
+            parameterCount:
+              preview.masterDataset.statistics.validatedCount ||
+              preview.masterDataset.parameters.length,
+            pipelineSteps: ['master_dataset', 'nit_analysis'],
+          });
+          await onPipelineProgress(85, 'nit_analysis');
+        },
+      });
+
+      this.emitPreview(payload.tenderId, payload.jobId, job.progress, {
+        phase: 'nit_preview',
+        nitReady: canonicalResult.masterDataset.parameters.length > 0,
+        parameterCount: canonicalResult.masterDataset.parameters.length,
+        pipelineSteps: canonicalResult.steps,
+      });
+
+      if (usePreview) {
+        canonicalResult = await canonicalTenderPipeline.run(pipelineCtx, {
+          refresh: true,
+          onProgress: async (pct) => onPipelineProgress(pct),
+        });
+      }
+
+      timer.mark('canonical_pipeline');
+
+      const intelligencePayload = buildIntelligencePayloadFromCanonical(canonicalResult, {
+        processingTimeMs: Date.now() - start,
+      });
 
       job.status = 'generating_report';
-      job.progress = 90;
+      job.progress = 95;
       await job.save();
-      this.emitProgress(payload.tenderId, payload.jobId, job.status, 90, payload.queueJobId);
+      this.emitProgress(payload.tenderId, payload.jobId, job.status, 95, payload.queueJobId);
 
       const intelligence = await TenderIntelligence.findOneAndUpdate(
         { tenderId: job.tenderId, jobId: job._id },
         {
           $set: {
-            ...previewPayload,
-            phase: 'complete',
-            processingTimeMs: Date.now() - start,
+            ...intelligencePayload,
+            tenderId: job.tenderId,
+            documentId: document._id,
+            jobId: job._id,
+            analyzedBy: new Types.ObjectId(payload.userId),
+            pageCount: pages.length,
+            chunkCount: Math.ceil(pages.length / 5),
           },
         },
-        { new: true }
+        { upsert: true, new: true }
       );
       if (!intelligence) throw new Error('Failed to save intelligence results');
 
-      const legacyData = mergedToLegacyAnalysis(validatedMerged);
+      const legacyData = buildLegacyAnalysisFromMasterDataset(canonicalResult.masterDataset);
       await tenderAnalysisRepository.create({
         tenderId: new Types.ObjectId(payload.tenderId),
         documentId: document._id,
         analyzedBy: new Types.ObjectId(payload.userId),
         ...legacyData,
-        aiRecommendation: `${finalSummaries.recommendation} — verified extraction`,
         rawText: document.extractedText?.slice(0, 50000),
-        aiModel: 'enterprise-verification-pipeline',
+        aiModel: 'canonical-tender-pipeline',
         processingTimeMs: Date.now() - start,
       });
 
@@ -557,18 +335,18 @@ class IntelligencePipeline {
       await job.save();
 
       const totalMs = Date.now() - start;
-      console.log('[Pipeline] Analysis complete', timer.summary({
+      console.log('[Pipeline] Canonical analysis complete', timer.summary({
         tenderId: payload.tenderId,
         documentId: payload.documentId,
         pageCount: pages.length,
-        chunkCount: chunkArtifacts.statistics.totalChunks,
-        chunkProcessingTimeMs: chunkArtifacts.statistics.totalProcessingTimeMs,
+        validatedParams: canonicalResult.masterDataset.statistics.validatedCount,
+        nitFields: canonicalResult.nitAnalysis.statistics.populatedFields,
         totalMs,
-        target50PageSec: 30,
-        withinTarget: pages.length <= 50 && totalMs <= 30_000,
       }));
 
       this.emitComplete(payload.tenderId, payload.jobId, intelligence.toObject(), payload.queueJobId);
+      return;
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[IntelligencePipeline] Analysis error:', msg);

@@ -11,6 +11,8 @@ export interface IAuditLog extends Document {
   oldValue?: Record<string, unknown>;
   newValue?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const auditLogSchema = new Schema<IAuditLog>(

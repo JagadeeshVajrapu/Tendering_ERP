@@ -7,7 +7,7 @@ import { TenderMasterDataset } from '../../models/TenderMasterDataset';
 import { TenderRiskAnalysis } from '../../models/TenderRiskAnalysis';
 import { TenderExecutiveRecommendation } from '../../models/TenderExecutiveRecommendation';
 import { MasterTenderDataset, MasterDatasetStatistics } from '../../types/masterDataset';
-import { masterDatasetService } from '../masterDataset/masterDatasetService';
+import { validatedMasterDatasetService } from '../masterTenderDataset/validatedMasterDatasetService';
 import { tenderRiskAnalysisService } from '../risk/tenderRiskAnalysisService';
 import { executiveRecommendationEngine } from './executiveRecommendationEngine';
 import { ExecutiveRecommendationResult } from '../../types/executiveRecommendation';
@@ -101,7 +101,7 @@ class TenderExecutiveRecommendationService {
 
     const job = await IntelligenceJob.findOne({ documentId: document._id }).sort({ createdAt: -1 });
 
-    await masterDatasetService.getOrBuildByDocumentId(document._id, document.tenderId, job?._id);
+    await validatedMasterDatasetService.getOrBuild(document._id, document.tenderId);
 
     const riskExists = await TenderRiskAnalysis.findOne({ documentId: document._id });
     if (!riskExists) {

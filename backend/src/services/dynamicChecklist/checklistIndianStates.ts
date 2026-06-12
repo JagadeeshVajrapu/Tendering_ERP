@@ -1,0 +1,45 @@
+export interface IndianState {
+  code: string;
+  name: string;
+}
+
+/** Indian states & union territories for GST / PF / ESIC state-wise selection. */
+export const INDIAN_STATES: IndianState[] = [
+  { code: 'ap', name: 'Andhra Pradesh' },
+  { code: 'ar', name: 'Arunachal Pradesh' },
+  { code: 'as', name: 'Assam' },
+  { code: 'br', name: 'Bihar' },
+  { code: 'cg', name: 'Chhattisgarh' },
+  { code: 'ga', name: 'Goa' },
+  { code: 'gj', name: 'Gujarat' },
+  { code: 'hr', name: 'Haryana' },
+  { code: 'hp', name: 'Himachal Pradesh' },
+  { code: 'jh', name: 'Jharkhand' },
+  { code: 'ka', name: 'Karnataka' },
+  { code: 'kl', name: 'Kerala' },
+  { code: 'mp', name: 'Madhya Pradesh' },
+  { code: 'mh', name: 'Maharashtra' },
+  { code: 'mn', name: 'Manipur' },
+  { code: 'ml', name: 'Meghalaya' },
+  { code: 'mz', name: 'Mizoram' },
+  { code: 'nl', name: 'Nagaland' },
+  { code: 'od', name: 'Odisha' },
+  { code: 'pb', name: 'Punjab' },
+  { code: 'rj', name: 'Rajasthan' },
+  { code: 'sk', name: 'Sikkim' },
+  { code: 'tn', name: 'Tamil Nadu' },
+  { code: 'ts', name: 'Telangana' },
+  { code: 'tr', name: 'Tripura' },
+  { code: 'up', name: 'Uttar Pradesh' },
+  { code: 'uk', name: 'Uttarakhand' },
+  { code: 'wb', name: 'West Bengal' },
+  { code: 'dl', name: 'Delhi' },
+  { code: 'jk', name: 'Jammu & Kashmir' },
+  { code: 'la', name: 'Ladakh' },
+  { code: 'ch', name: 'Chandigarh' },
+  { code: 'py', name: 'Puducherry' },
+  { code: 'an', name: 'Andaman & Nicobar' },
+  { code: 'dd', name: 'Daman & Diu' },
+  { code: 'dn', name: 'Dadra & Nagar Haveli' },
+  { code: 'ld', name: 'Lakshadweep' },
+];

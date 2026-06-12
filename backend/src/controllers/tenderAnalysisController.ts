@@ -13,12 +13,8 @@ import { intelligenceService } from '../services/intelligence/intelligenceServic
 import { tenderAnalysisService } from '../services/analysis/tenderAnalysisService';
 
 import { feasibilityReportService } from '../services/report/feasibilityReportService';
-import { workflowService } from '../services/workflow/workflowService';
-
-import { Approval } from '../models/Approval';
-
-import { ApprovalType } from '../types';
-
+import { enterpriseFeasibilityWorkflowService } from '../services/report/enterpriseFeasibilityWorkflowService';
+import { MdFeasibilityAction } from '../types/enterpriseFeasibilityReport';
 import { fileStorageService } from '../services/storage/fileStorageService';
 
 
@@ -137,7 +133,7 @@ export const reanalyzeTender = asyncHandler(async (req: AuthRequest, res: Respon
 export const generateFeasibilityReport = asyncHandler(async (req: AuthRequest, res: Response) => {
   const tenderId = paramId(req.params.id);
   const result = await feasibilityReportService.generateReport(tenderId, req.user!._id);
-  sendSuccess(res, result, 'MD feasibility report generated');
+  sendSuccess(res, result, 'Enterprise MD feasibility report generated');
 });
 
 
@@ -153,61 +149,45 @@ export const getFeasibilityReport = asyncHandler(async (req: AuthRequest, res: R
 
 
 export const mdTenderDecision = asyncHandler(async (req: AuthRequest, res: Response) => {
-
   const tenderId = paramId(req.params.id);
+  const { decision, remarks, action } = req.body as {
+    decision?: 'APPROVED' | 'REJECTED';
+    remarks?: string;
+    action?: MdFeasibilityAction;
+  };
 
-  const { decision, remarks } = req.body as { decision: 'APPROVED' | 'REJECTED'; remarks?: string };
+  const mdAction: MdFeasibilityAction =
+    action || (decision === 'APPROVED' ? 'approve' : 'reject');
 
-
-
-  const approved = decision === 'APPROVED';
-
-  const tender = await workflowService.mdDecision(
-
+  const report = await enterpriseFeasibilityWorkflowService.mdAction(
     tenderId,
-
-    approved,
-
+    mdAction,
     req.user!._id,
-
     req.user!.role,
-
     remarks
-
   );
 
+  sendSuccess(
+    res,
+    { report, tenderId },
+    mdAction === 'approve' ? 'Tender approved' : 'MD action recorded'
+  );
+});
 
+/** POST /api/tenders/:id/feasibility/md-action */
+export const mdFeasibilityAction = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const tenderId = paramId(req.params.id);
+  const { action, comments } = req.body as { action: MdFeasibilityAction; comments?: string };
 
-  const approval = await Approval.findOne({
-
+  const report = await enterpriseFeasibilityWorkflowService.mdAction(
     tenderId,
+    action,
+    req.user!._id,
+    req.user!.role,
+    comments
+  );
 
-    type: ApprovalType.MD,
-
-    reviewedBy: req.user!._id,
-
-  }).sort({ decidedAt: -1 });
-
-
-
-  sendSuccess(res, {
-
-    tender,
-
-    decision: {
-
-      decision,
-
-      remarks: remarks || '',
-
-      approvedBy: req.user!._id,
-
-      approvedAt: approval?.decidedAt || new Date(),
-
-    },
-
-  }, approved ? 'Tender approved' : 'Tender rejected');
-
+  sendSuccess(res, { report }, 'MD feasibility action recorded');
 });
 
 

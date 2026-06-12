@@ -64,6 +64,22 @@ export interface IFeasibilityReport extends Document {
 
   executiveReport?: ExecutiveReportSnapshot;
 
+  enterpriseReport?: unknown;
+
+  schemaVersion?: number;
+
+  approvalStatus?: string;
+
+  decisionHistory?: Array<{
+    action: string;
+    by: string;
+    byRole: string;
+    at: string;
+    comments?: string;
+  }>;
+
+  submittedAt?: Date;
+
   pdfPath: string;
 
   pdfFileName: string;
@@ -131,6 +147,20 @@ const feasibilityReportSchema = new Schema<IFeasibilityReport>(
       recommendationJustification: { type: String },
 
     },
+
+    enterpriseReport: { type: Schema.Types.Mixed },
+
+    schemaVersion: { type: Number, default: 1 },
+
+    approvalStatus: {
+      type: String,
+      enum: ['draft', 'submitted', 'approved', 'rejected', 'review', 'conditional'],
+      default: 'draft',
+    },
+
+    decisionHistory: { type: Schema.Types.Mixed, default: [] },
+
+    submittedAt: { type: Date },
 
     pdfPath: { type: String, required: true },
 

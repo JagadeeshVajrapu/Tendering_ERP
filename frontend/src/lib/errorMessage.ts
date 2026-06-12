@@ -13,3 +13,7 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
   }
   return fallback;
 }
+
+export function isApiUnreachableError(error: unknown): boolean {
+  return getErrorMessage(error, '').includes('Cannot reach the API server');
+}

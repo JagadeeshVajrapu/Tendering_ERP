@@ -12,33 +12,50 @@ import { AllDiscoveredParametersTable } from './AllDiscoveredParametersTable';
 interface Props {
   tenderId: string;
   token: string;
+  jobRunning?: boolean;
+  ocrReady?: boolean;
 }
 
-export function ExtractedParametersTable({ tenderId, token }: Props) {
+export function ExtractedParametersTable({
+  tenderId,
+  token,
+  jobRunning,
+  ocrReady = true,
+}: Props) {
   const [refresh, setRefresh] = useState(false);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['discovered-parameters', tenderId, refresh],
     queryFn: () => api.getTenderDiscoveredParameters(token, tenderId, refresh),
-    enabled: !!token,
+    enabled: !!token && ocrReady,
     retry: 1,
+    refetchInterval: jobRunning ? 8000 : false,
   });
 
   const payload = data?.data;
 
-  if (isLoading) {
+  if (!ocrReady) {
+    return (
+      <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+        Waiting for OCR to finish…
+      </p>
+    );
+  }
+
+  if (isLoading && !payload?.parameters?.length) {
     return (
       <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-        Running Dynamic Parameter Discovery on OCR records…
+        Loading extracted parameters…
       </div>
     );
   }
 
-  if (error) {
+  if (error && !payload?.parameters?.length) {
     return (
-      <p className="py-8 text-center text-sm text-red-600">
-        {getErrorMessage(error, 'Could not load discovered parameters')}
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {getErrorMessage(error, 'Parameters not ready yet')}
+        {jobRunning ? ' — extraction is still running.' : ''}
       </p>
     );
   }
@@ -46,7 +63,9 @@ export function ExtractedParametersTable({ tenderId, token }: Props) {
   if (!payload?.parameters?.length) {
     return (
       <p className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
-        No parameters discovered yet. Complete OCR, then click Re-extract.
+        {jobRunning
+          ? 'Extracting parameters… table updates automatically.'
+          : 'No parameters extracted yet. Click Re-extract or re-analyze the document.'}
       </p>
     );
   }
@@ -54,8 +73,11 @@ export function ExtractedParametersTable({ tenderId, token }: Props) {
   return (
     <AllDiscoveredParametersTable
       parameters={payload.parameters.map((p, i) => ({
-        ...p,
-        id: p.id ?? `${p.sourcePage}-${i}-${p.parameterName}`,
+        id: `${p.sourcePage ?? (p as { pageNumber?: number }).pageNumber}-${i}-${p.parameterName}`,
+        parameterName: p.parameterName,
+        parameterValue: p.parameterValue,
+        sourcePage: p.sourcePage ?? (p as { pageNumber?: number }).pageNumber ?? 0,
+        confidence: p.confidence,
       }))}
       totalFound={payload.totalFound}
       pagesScanned={payload.pagesScanned}
@@ -79,7 +101,7 @@ export function ExtractedParametersTable({ tenderId, token }: Props) {
           </Button>
           <Link href={`/tenders/${tenderId}/nit-analysis`}>
             <Button variant="outline" size="sm">
-              Mapped NIT report
+              NIT report
             </Button>
           </Link>
         </div>

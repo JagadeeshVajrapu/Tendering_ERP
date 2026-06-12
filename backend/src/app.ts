@@ -15,6 +15,8 @@ import notificationRoutes from './routes/notificationRoutes';
 import jobRoutes from './routes/jobRoutes';
 import tenderExtractionRoutes from './routes/tenderExtractionRoutes';
 import debugRoutes from './routes/debugRoutes';
+import documentRoutes from './routes/documentRoutes';
+import financeWorkflowRoutes from './routes/financeWorkflowRoutes';
 
 const app = express();
 
@@ -34,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: env.isProduction ? 200 : 500,
+    max: env.isProduction ? 200 : 3000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { success: false, message: 'Too many requests' },
@@ -67,9 +69,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tenders', tenderAnalysisRoutes);
 app.use('/api/tenders', tenderRoutes);
 app.use('/api/approvals', approvalRoutes);
+app.use('/api/finance', financeWorkflowRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/tender', tenderExtractionRoutes);
+app.use('/api/documents', documentRoutes);
 app.use('/api/debug', debugRoutes);
 
 app.use(notFoundHandler);

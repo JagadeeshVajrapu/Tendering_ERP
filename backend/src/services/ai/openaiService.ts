@@ -2,6 +2,7 @@ import { env } from '../../config/env';
 import { IExtractedNitData, IRiskAssessment } from '../../models/NitAnalysis';
 import { RiskLevel } from '../../types';
 import { getOpenAIClient, isOpenAIApiError, getOpenAIErrorMessage } from './openaiClient';
+import { isQuotaBlocked, markQuotaExceeded } from './aiQuotaGuard';
 import {
   buildLocalNitExtraction,
   buildLocalRiskAssessment,
@@ -64,28 +65,53 @@ class OpenAIService {
   private async chat(system: string, userContent: string): Promise<string> {
     const client = getOpenAIClient();
     if (!client) throw new Error('OpenAI client not available');
+    if (isQuotaBlocked('openai')) throw new Error('OpenAI API quota exceeded');
 
-    const response = await client.chat.completions.create({
-      model: env.openai.model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userContent.slice(0, 120000) },
-      ],
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-    });
-    return response.choices[0]?.message?.content || '{}';
+    try {
+      const response = await client.chat.completions.create({
+        model: env.openai.model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: userContent.slice(0, 120000) },
+        ],
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      });
+      return response.choices[0]?.message?.content || '{}';
+    } catch (err) {
+      if (isOpenAIApiError(err)) markQuotaExceeded('openai');
+      throw err;
+    }
   }
 
   /**
    * Generic helper for modules that need a strict JSON object response.
    * The caller is responsible for prompt/schema correctness.
    */
-  async rawJsonObject(userPrompt: string, systemPrompt = 'Return ONLY a valid JSON object.'): Promise<string> {
-    if (!getOpenAIClient()) {
-      throw new Error('OpenAI client not available');
+  async rawJsonObject(
+    userPrompt: string,
+    systemPrompt = 'Return ONLY a valid JSON object.',
+    temperature = 0.2
+  ): Promise<string> {
+    const client = getOpenAIClient();
+    if (!client) throw new Error('OpenAI client not available');
+    if (isQuotaBlocked('openai')) throw new Error('OpenAI API quota exceeded');
+
+    try {
+      const response = await client.chat.completions.create({
+        model: env.openai.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt.slice(0, 120000) },
+        ],
+        temperature,
+        response_format: { type: 'json_object' },
+      });
+      return response.choices[0]?.message?.content || '{}';
+    } catch (err) {
+      if (isOpenAIApiError(err)) markQuotaExceeded('openai');
+      throw err;
     }
-    return this.chat(systemPrompt, userPrompt);
   }
 
   private parseJson<T>(text: string): T {

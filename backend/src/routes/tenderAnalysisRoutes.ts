@@ -8,6 +8,7 @@ import {
   generateFeasibilityReport,
   getFeasibilityReport,
   mdTenderDecision,
+  mdFeasibilityAction,
   downloadFeasibilityReport,
 } from '../controllers/tenderAnalysisController';
 import { authenticate, authorize, authorizeRoles } from '../middleware/auth';
@@ -83,6 +84,13 @@ router.post(
   authorize('approval:md'),
   validate(mdDecisionSchema),
   mdTenderDecision
+);
+
+router.post(
+  '/:id/feasibility/md-action',
+  authorizeRoles(UserRole.MD),
+  authorize('approval:md'),
+  mdFeasibilityAction
 );
 
 export default router;

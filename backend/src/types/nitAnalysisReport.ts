@@ -9,13 +9,29 @@ export interface DiscoveredParameterRow extends DynamicParameterRecord {
   id: string;
 }
 
+export type NitConfidenceTier = 'verified' | 'high' | 'review' | 'low';
+
+export type NitValidationDisplay = 'Validated' | 'Dynamic Parameter' | 'Review';
+
 export interface NitAnalysisStatistics {
   totalDiscovered: number;
+  /** Primary headline count — all validated parameters in the report */
+  totalParametersExtracted?: number;
   mappedCount: number;
   populatedFields: number;
+  /** Parameters visible when low-confidence rows are hidden (confidence ≥ 70) */
+  visibleByDefault?: number;
   totalMasterFields: number;
+  coreCount: number;
+  dynamicCount: number;
+  reviewCount?: number;
   pagesScanned: number;
   averageConfidence: number;
+  /** Count per professional category, e.g. { Identity: 5, "Additional Tender Parameters": 14 } */
+  categoryCounts: Record<string, number>;
+  confidenceTierCounts?: Record<string, number>;
+  serviceCategory?: string;
+  masterDatasetVersion?: number;
 }
 
 export interface NitAnalysisPipelineInfo {
@@ -23,18 +39,41 @@ export interface NitAnalysisPipelineInfo {
 }
 
 export interface NitAnalysisFieldRow {
-  key: MasterDatasetKey;
+  key: string;
   label: string;
   value: string;
   confidence: number;
+  confidenceTier?: NitConfidenceTier;
+  confidenceLabel?: string;
+  hiddenByDefault?: boolean;
   sourcePage: number;
-  sourceText: string;
   extractionMethod?: string;
+  category?: string;
+  parameterType?: 'core' | 'dynamic';
+  validationStatus?: 'validated' | 'review' | 'rejected' | 'pending';
+  validationDisplay?: NitValidationDisplay;
+  normalizedParameter?: string;
+  sourceSection?: string;
+  rankingScore?: number;
+  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface NitAnalysisRiskItem {
+  riskType: string;
+  level: 'LOW' | 'MEDIUM' | 'HIGH';
+  reason: string;
+  confidence: number;
+}
+
+export interface NitAnalysisRiskSummary {
+  overallLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  risks: NitAnalysisRiskItem[];
 }
 
 export interface NitAnalysisSectionReport {
   id: string;
   title: string;
+  intelligenceLabel?: string;
   description: string;
   fields: NitAnalysisFieldRow[];
 }
@@ -44,12 +83,14 @@ export interface NitAnalysisReport {
   documentId: string;
   originalName?: string;
   generatedAt: string;
-  /** NIT view is built from mapped master dataset fields */
-  dataSource: 'master_dataset';
+  reportType?: 'professional' | 'enterprise_dynamic';
+  /** Built exclusively from master dataset — never raw OCR or candidate tables */
+  dataSource: 'validated_master_dataset' | 'master_dataset' | 'enterprise_master_dataset';
   pipeline: NitAnalysisPipelineInfo;
-  /** Flat list of mapped tender fields (primary UI) — populated values only */
+  /** Validated parameters only (dictionary-approved names) */
   tenderParameters: NitAnalysisFieldRow[];
-  /** Populated business fields grouped by NIT section */
+  /** Professional sections: Identity → … → Risk */
   sections: NitAnalysisSectionReport[];
+  riskSummary?: NitAnalysisRiskSummary;
   statistics: NitAnalysisStatistics;
 }

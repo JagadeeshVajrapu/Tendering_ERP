@@ -63,6 +63,7 @@ class IntelligenceService {
       tenderId,
       documentId: String(document._id),
       userId: String(userId),
+      refresh: true,
     });
 
     return { job, queueJobId };

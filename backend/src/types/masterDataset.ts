@@ -44,7 +44,25 @@ export type MasterDatasetKey =
   | 'paymentTerms'
   | 'penaltyClauses'
   | 'certificates'
-  | 'scopeOfWork';
+  | 'scopeOfWork'
+  | 'bankGuarantee'
+  | 'netWorthRequirement'
+  | 'bidCapacity'
+  | 'gst'
+  | 'pan'
+  | 'msme'
+  | 'pf'
+  | 'esic'
+  | 'iso'
+  | 'labourLicense'
+  | 'bankSolvency'
+  | 'workOrders'
+  | 'completionCertificates'
+  | 'experienceCertificates'
+  | 'technicalRequirements'
+  | 'bgRequired'
+  | 'mafRequired'
+  | 'reverseAuction';
 
 export type MasterTenderDataset = Record<MasterDatasetKey, MasterDatasetField>;
 
@@ -86,6 +104,24 @@ export const MASTER_DATASET_KEYS: MasterDatasetKey[] = [
   'penaltyClauses',
   'certificates',
   'scopeOfWork',
+  'bankGuarantee',
+  'netWorthRequirement',
+  'bidCapacity',
+  'gst',
+  'pan',
+  'msme',
+  'pf',
+  'esic',
+  'iso',
+  'labourLicense',
+  'bankSolvency',
+  'workOrders',
+  'completionCertificates',
+  'experienceCertificates',
+  'technicalRequirements',
+  'bgRequired',
+  'mafRequired',
+  'reverseAuction',
 ];
 
 export interface MasterDatasetStatistics {

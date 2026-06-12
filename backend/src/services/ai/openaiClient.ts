@@ -1,6 +1,9 @@
 import OpenAI from 'openai';
 import { env } from '../../config/env';
 
+export const OPENAI_QUOTA_USER_MESSAGE =
+  'OpenAI API quota exceeded. Wait a few minutes or update your API key.';
+
 let cachedClient: OpenAI | null = null;
 let cachedKey = '';
 

@@ -1,41 +1,5 @@
 import { MasterDatasetKey } from '../../types/masterDataset';
+import { NIT_ALLOWED_DATASET_KEYS } from '../tenderParameter/masterTenderParameterDictionary';
 
-/** Primary tender fields shown first in NIT / tender UI tables. */
-export const NIT_TENDER_PARAMETER_ORDER: MasterDatasetKey[] = [
-  'tenderNumber',
-  'nitNumber',
-  'bidReferenceNumber',
-  'tenderTitle',
-  'workName',
-  'scopeOfWork',
-  'organization',
-  'department',
-  'location',
-  'district',
-  'state',
-  'emdAmount',
-  'tenderValue',
-  'estimatedCost',
-  'documentFee',
-  'publishingDate',
-  'bidStartDate',
-  'bidEndDate',
-  'technicalBidDate',
-  'financialBidDate',
-  'preBidMeetingDate',
-  'contractPeriod',
-  'completionPeriod',
-  'eligibilityCriteria',
-  'experienceRequirement',
-  'turnoverRequirement',
-  'manpowerRequirement',
-  'equipmentRequirement',
-  'contactName',
-  'contactDesignation',
-  'contactEmail',
-  'contactPhone',
-  'paymentTerms',
-  'penaltyClauses',
-  'performanceSecurity',
-  'certificates',
-];
+/** Primary NIT tender fields — Master Parameter Dictionary order only. */
+export const NIT_TENDER_PARAMETER_ORDER: MasterDatasetKey[] = [...NIT_ALLOWED_DATASET_KEYS];

@@ -19,6 +19,7 @@ const navByRole: Record<UserRole, { href: string; label: string; icon: React.Ele
   executive: [
     { href: '/dashboard/executive', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/tenders', label: 'My Tenders', icon: FileText },
+    { href: '/dashboard/finance-approvals', label: 'My Finance Requests', icon: IndianRupee },
     { href: '/notifications', label: 'Notifications', icon: Bell },
   ],
   md: [
@@ -27,10 +28,12 @@ const navByRole: Record<UserRole, { href: string; label: string; icon: React.Ele
   ],
   finance: [
     { href: '/dashboard/finance', label: 'Finance Desk', icon: LayoutDashboard },
+    { href: '/dashboard/finance-approvals', label: 'Finance Approvals', icon: IndianRupee },
     { href: '/notifications', label: 'Notifications', icon: Bell },
   ],
   manager: [
     { href: '/dashboard/manager', label: 'Compliance Desk', icon: LayoutDashboard },
+    { href: '/dashboard/finance-approvals', label: 'Finance Approvals', icon: IndianRupee },
     { href: '/notifications', label: 'Notifications', icon: Bell },
   ],
 };

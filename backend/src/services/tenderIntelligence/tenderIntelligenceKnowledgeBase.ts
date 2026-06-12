@@ -1,0 +1,367 @@
+import {
+  TenderDocumentSectionType,
+  TenderIntelligenceType,
+} from '../../types/tenderIntelligenceLayer';
+
+export interface TenderTypeDefinition {
+  type: TenderIntelligenceType;
+  keywords: string[];
+  headingPatterns?: RegExp[];
+}
+
+export interface SectionDefinition {
+  section: TenderDocumentSectionType;
+  keywords: string[];
+  headingPatterns: RegExp[];
+}
+
+export const TENDER_TYPE_KNOWLEDGE_BASE: TenderTypeDefinition[] = [
+  {
+    type: 'Manpower',
+    keywords: [
+      'manpower supply',
+      'deployment of manpower',
+      'contract labour',
+      'skilled manpower',
+      'unskilled manpower',
+      'outsourcing of manpower',
+      'human resource',
+      'staff deployment',
+      'labour supply',
+    ],
+    headingPatterns: [/manpower/i, /contract\s+labou?r/i, /staff\s+deployment/i],
+  },
+  {
+    type: 'Security',
+    keywords: [
+      'security services',
+      'security guard',
+      'guarding services',
+      'watch and ward',
+      'psara',
+      'private security agency',
+      'cctv surveillance',
+      'armed guard',
+      'unarmed guard',
+    ],
+    headingPatterns: [/security\s+services?/i, /guarding/i, /watch\s+and\s+ward/i],
+  },
+  {
+    type: 'Housekeeping',
+    keywords: [
+      'housekeeping',
+      'cleaning services',
+      'sanitation services',
+      'janitorial',
+      'sweeper',
+      'mopping',
+      'deep cleaning',
+    ],
+    headingPatterns: [/housekeeping/i, /cleaning\s+services?/i],
+  },
+  {
+    type: 'Facility Management',
+    keywords: [
+      'facility management',
+      'integrated facility',
+      'fm services',
+      'building maintenance',
+      'estate management',
+      'soft services',
+      'hard services',
+    ],
+    headingPatterns: [/facility\s+management/i, /integrated\s+facility/i],
+  },
+  {
+    type: 'Horticulture',
+    keywords: [
+      'horticulture',
+      'landscaping',
+      'garden maintenance',
+      'lawn maintenance',
+      'plantation',
+      'gardener',
+      'shrub pruning',
+    ],
+    headingPatterns: [/horticulture/i, /landscaping/i],
+  },
+  {
+    type: 'Civil',
+    keywords: [
+      'civil works',
+      'construction work',
+      'building work',
+      'road work',
+      'structural work',
+      'cpwd',
+      'rcc work',
+      'earthwork',
+    ],
+    headingPatterns: [/civil\s+works?/i, /construction/i],
+  },
+  {
+    type: 'Electrical',
+    keywords: [
+      'electrical works',
+      'electrical installation',
+      'wiring',
+      'lt panel',
+      'ht panel',
+      'electrification',
+      'substation',
+    ],
+    headingPatterns: [/electrical\s+works?/i, /electrification/i],
+  },
+  {
+    type: 'Mechanical',
+    keywords: [
+      'mechanical works',
+      'hvac',
+      'air conditioning',
+      'chiller',
+      'boiler',
+      'pump installation',
+      'mechanical maintenance',
+    ],
+    headingPatterns: [/mechanical\s+works?/i, /\bhvac\b/i],
+  },
+  {
+    type: 'IT',
+    keywords: [
+      'it services',
+      'software development',
+      'hardware supply',
+      'data center',
+      'cloud services',
+      'networking',
+      'system integration',
+      'erp implementation',
+    ],
+    headingPatterns: [/it\s+services?/i, /software/i, /system\s+integration/i],
+  },
+  {
+    type: 'GeM',
+    keywords: [
+      'government e marketplace',
+      'government e-marketplace',
+      'gem portal',
+      'bid on gem',
+      'gem bid',
+      'gem contract',
+      'www.gem.gov.in',
+      'gem.gov.in',
+    ],
+    headingPatterns: [/\bgem\b/i, /government\s+e[\s-]?marketplace/i],
+  },
+  {
+    type: 'Railway',
+    keywords: [
+      'indian railways',
+      'railway board',
+      'irctc',
+      'railway tender',
+      'railway administration',
+      'zonal railway',
+      'divisional railway',
+    ],
+    headingPatterns: [/indian\s+railways?/i, /railway\s+board/i],
+  },
+  {
+    type: 'Defence',
+    keywords: [
+      'ministry of defence',
+      'mod tender',
+      'defence procurement',
+      'armed forces',
+      'indian army',
+      'indian navy',
+      'indian air force',
+      'dgqa',
+      'ofb',
+    ],
+    headingPatterns: [/ministry\s+of\s+defence/i, /defence\s+procurement/i],
+  },
+  {
+    type: 'Healthcare',
+    keywords: [
+      'hospital services',
+      'medical equipment',
+      'healthcare',
+      'diagnostic services',
+      'pharmacy',
+      'patient care',
+      'biomedical',
+    ],
+    headingPatterns: [/healthcare/i, /hospital\s+services?/i],
+  },
+  {
+    type: 'Education',
+    keywords: [
+      'educational services',
+      'school services',
+      'training services',
+      'academic',
+      'university',
+      'skill development',
+      'learning management',
+    ],
+    headingPatterns: [/education/i, /training\s+services?/i],
+  },
+  {
+    type: 'Consultancy',
+    keywords: [
+      'consultancy services',
+      'consulting services',
+      'advisory services',
+      'feasibility study',
+      'design consultancy',
+      'project management consultancy',
+      'pmc',
+    ],
+    headingPatterns: [/consultancy/i, /advisory\s+services?/i],
+  },
+  {
+    type: 'Supply',
+    keywords: [
+      'supply of goods',
+      'procurement of goods',
+      'purchase of',
+      'supply order',
+      'rate contract',
+      'goods tender',
+      'material supply',
+    ],
+    headingPatterns: [/supply\s+of/i, /procurement\s+of\s+goods/i],
+  },
+];
+
+export const DOCUMENT_SECTION_KNOWLEDGE_BASE: SectionDefinition[] = [
+  {
+    section: 'Identity',
+    keywords: [
+      'notice inviting tender',
+      'nit',
+      'tender reference',
+      'tender id',
+      'eprocurement',
+      'name of work',
+      'name of organisation',
+      'department',
+      'inviting authority',
+    ],
+    headingPatterns: [
+      /notice\s+inviting\s+tender/i,
+      /\bnit\b/i,
+      /tender\s+reference/i,
+      /general\s+information/i,
+    ],
+  },
+  {
+    section: 'Financial',
+    keywords: [
+      'earnest money',
+      'emd',
+      'tender fee',
+      'bid security',
+      'performance guarantee',
+      'security deposit',
+      'cost of tender',
+      'financial bid',
+      'price bid',
+    ],
+    headingPatterns: [/financial/i, /earnest\s+money/i, /\bemd\b/i, /tender\s+fee/i],
+  },
+  {
+    section: 'Timeline',
+    keywords: [
+      'last date',
+      'submission deadline',
+      'bid opening',
+      'pre-bid meeting',
+      'date of opening',
+      'closing date',
+      'time schedule',
+      'important dates',
+    ],
+    headingPatterns: [/important\s+dates?/i, /time\s+schedule/i, /last\s+date/i, /bid\s+opening/i],
+  },
+  {
+    section: 'Eligibility',
+    keywords: [
+      'eligibility criteria',
+      'qualification criteria',
+      'pre-qualification',
+      'minimum turnover',
+      'experience criteria',
+      'bidder eligibility',
+    ],
+    headingPatterns: [/eligibility/i, /qualification\s+criteria/i, /pre[\s-]?qualification/i],
+  },
+  {
+    section: 'Compliance',
+    keywords: [
+      'statutory compliance',
+      'gst registration',
+      'pf registration',
+      'esi registration',
+      'labour license',
+      'income tax',
+      'legal compliance',
+    ],
+    headingPatterns: [/compliance/i, /statutory/i, /\bgst\b/i],
+  },
+  {
+    section: 'Experience',
+    keywords: [
+      'similar work',
+      'past experience',
+      'work experience',
+      'experience certificate',
+      'completed projects',
+      'work order',
+      'proof of experience',
+    ],
+    headingPatterns: [/experience/i, /similar\s+work/i, /past\s+performance/i],
+  },
+  {
+    section: 'Scope',
+    keywords: [
+      'scope of work',
+      'statement of work',
+      'work description',
+      'deliverables',
+      'job description',
+      'nature of work',
+    ],
+    headingPatterns: [/scope\s+of\s+work/i, /statement\s+of\s+work/i, /work\s+description/i],
+  },
+  {
+    section: 'Technical Specifications',
+    keywords: [
+      'technical specification',
+      'technical bid',
+      'technical requirements',
+      'specification',
+      'technical compliance',
+      'make and model',
+    ],
+    headingPatterns: [/technical\s+specification/i, /technical\s+bid/i, /technical\s+requirements?/i],
+  },
+  {
+    section: 'Annexures',
+    keywords: ['annexure', 'appendix', 'schedule', 'form', 'format', 'enclosure'],
+    headingPatterns: [/annexure/i, /appendix/i, /schedule\s+[a-z0-9]/i],
+  },
+  {
+    section: 'Tender Specific',
+    keywords: [
+      'special conditions',
+      'particular conditions',
+      'additional conditions',
+      'tender specific',
+      'special terms',
+      'general conditions of contract',
+    ],
+    headingPatterns: [/special\s+conditions?/i, /particular\s+conditions?/i, /tender\s+specific/i],
+  },
+];

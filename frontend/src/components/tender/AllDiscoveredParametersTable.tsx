@@ -18,14 +18,20 @@ interface Props {
   parameters: DiscoveredParameterRow[];
   totalFound?: number;
   pagesScanned?: number;
+  title?: string;
+  subtitle?: string;
   headerExtra?: React.ReactNode;
+  showSearch?: boolean;
 }
 
 export function AllDiscoveredParametersTable({
   parameters,
   totalFound,
   pagesScanned,
+  title = 'Extracted Parameters',
+  subtitle,
   headerExtra,
+  showSearch = true,
 }: Props) {
   const [search, setSearch] = useState('');
 
@@ -46,23 +52,25 @@ export function AllDiscoveredParametersTable({
       <CardHeader className="border-b bg-slate-50/80 pb-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-lg">All Discovered Parameters</CardTitle>
+            <CardTitle className="text-lg">{title}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              {total} parameter{total === 1 ? '' : 's'} from OCR
-              {pagesScanned != null ? ` · ${pagesScanned} pages` : ''} — no predefined schema
+              {subtitle ??
+                `${total} parameter${total === 1 ? '' : 's'}${pagesScanned != null ? ` · ${pagesScanned} pages scanned` : ''}`}
             </p>
           </div>
           {headerExtra}
         </div>
-        <div className="relative mt-2 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search parameter or value…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        {showSearch && (
+          <div className="relative mt-2 max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search parameter or value…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="p-0">

@@ -107,14 +107,21 @@ class OcrNormalizationService {
   }
 
   /**
-   * Gate for extraction pipelines — throws if pages have text but normalization is empty.
+   * Gate for extraction pipelines.
+   * Label–value records are optional — AI extraction uses full page OCR text when records are empty.
    */
   assertNormalizationReady(result: OcrNormalizationResult): void {
-    const hasText = result.pageSummaries.some((p) => p.characterCount > 80);
-    if (hasText && result.totalRecords === 0) {
+    const totalChars = result.pageSummaries.reduce((sum, p) => sum + p.characterCount, 0);
+    if (totalChars < 80) {
       throw new AppError(
-        'OCR normalization produced no label–value records. Verify OCR text contains lines like "EMD:" or "Name of Work:" before running extraction.',
-        422
+        'No OCR text available. Wait for OCR processing to finish, then re-analyze.',
+        400
+      );
+    }
+    if (result.totalRecords === 0) {
+      console.warn(
+        '[OCR Normalization] No label–value records — continuing with full-page AI extraction.',
+        { documentId: result.documentId, pages: result.pagesScanned, totalChars }
       );
     }
   }

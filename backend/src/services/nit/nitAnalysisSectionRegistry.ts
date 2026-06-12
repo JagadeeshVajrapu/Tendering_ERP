@@ -1,4 +1,6 @@
 import { MasterDatasetKey } from '../../types/masterDataset';
+import { getDictionaryCanonicalLabel } from '../tenderParameter/masterTenderParameterDictionaryEngine';
+import { NIT_ALLOWED_DATASET_KEYS } from '../tenderParameter/masterTenderParameterDictionary';
 
 export interface NitAnalysisSectionDefinition {
   id: string;
@@ -7,59 +9,31 @@ export interface NitAnalysisSectionDefinition {
   fields: MasterDatasetKey[];
 }
 
-/** NIT Analysis section layout — every master dataset field appears exactly once. */
+/** NIT Analysis sections — only Master Tender Parameter Dictionary fields. */
 export const NIT_ANALYSIS_SECTIONS: NitAnalysisSectionDefinition[] = [
   {
-    id: 'tender-overview',
-    title: 'Tender Overview',
-    description: 'Identity, issuing authority, work details, location, and contact information.',
+    id: 'identity',
+    title: 'Identity',
+    description: 'Tender identity, authority, work details, and location.',
     fields: [
       'tenderNumber',
       'nitNumber',
-      'bidReferenceNumber',
-      'department',
       'organization',
+      'department',
       'tenderTitle',
       'workName',
       'location',
-      'district',
-      'state',
-      'country',
-      'contactName',
-      'contactDesignation',
-      'contactEmail',
-      'contactPhone',
-      'scopeOfWork',
     ],
   },
   {
-    id: 'financial-analysis',
-    title: 'Financial Analysis',
-    description: 'Estimated value, fees, payment terms, and penalty provisions.',
-    fields: [
-      'estimatedCost',
-      'tenderValue',
-      'emdAmount',
-      'documentFee',
-      'paymentTerms',
-      'penaltyClauses',
-    ],
+    id: 'financial',
+    title: 'Financial',
+    description: 'Tender value, EMD, fees, and security requirements.',
+    fields: ['tenderValue', 'emdAmount', 'documentFee', 'performanceSecurity', 'bankGuarantee'],
   },
   {
-    id: 'eligibility-analysis',
-    title: 'Eligibility Analysis',
-    description: 'Bidder qualification criteria and resource requirements.',
-    fields: [
-      'eligibilityCriteria',
-      'experienceRequirement',
-      'turnoverRequirement',
-      'manpowerRequirement',
-      'equipmentRequirement',
-    ],
-  },
-  {
-    id: 'timeline-analysis',
-    title: 'Timeline Analysis',
+    id: 'timeline',
+    title: 'Timeline',
     description: 'Publication, submission, opening dates, and contract duration.',
     fields: [
       'publishingDate',
@@ -67,55 +41,62 @@ export const NIT_ANALYSIS_SECTIONS: NitAnalysisSectionDefinition[] = [
       'bidEndDate',
       'technicalBidDate',
       'financialBidDate',
-      'preBidMeetingDate',
       'completionPeriod',
       'contractPeriod',
     ],
   },
   {
-    id: 'compliance-analysis',
-    title: 'Compliance Analysis',
-    description: 'Mandatory certificates, documents, and performance security.',
-    fields: ['certificates', 'performanceSecurity'],
+    id: 'eligibility',
+    title: 'Eligibility',
+    description: 'Bidder qualification and capacity requirements.',
+    fields: ['turnoverRequirement', 'experienceRequirement', 'netWorthRequirement', 'bidCapacity'],
+  },
+  {
+    id: 'compliance',
+    title: 'Compliance',
+    description: 'Mandatory statutory and registration requirements.',
+    fields: ['gst', 'pan', 'msme', 'pf', 'esic', 'iso', 'labourLicense', 'bankSolvency'],
+  },
+  {
+    id: 'experience',
+    title: 'Experience',
+    description: 'Past work evidence and certificates.',
+    fields: ['workOrders', 'completionCertificates', 'experienceCertificates'],
+  },
+  {
+    id: 'scope',
+    title: 'Scope',
+    description: 'Work scope and technical requirements.',
+    fields: ['scopeOfWork', 'technicalRequirements'],
   },
 ];
 
-export const NIT_FIELD_LABELS: Record<MasterDatasetKey, string> = {
-  tenderNumber: 'Tender Number',
-  nitNumber: 'NIT Number',
+export const NIT_FIELD_LABELS: Record<MasterDatasetKey, string> = Object.fromEntries(
+  NIT_ALLOWED_DATASET_KEYS.map((key) => [key, getDictionaryCanonicalLabel(key)])
+) as Record<MasterDatasetKey, string>;
+
+// Legacy master dataset keys not in NIT dictionary — keep labels for internal use
+const LEGACY_NIT_LABELS: Partial<Record<MasterDatasetKey, string>> = {
   bidReferenceNumber: 'Bid Reference Number',
-  department: 'Department',
-  organization: 'Organization / Issuing Authority',
-  tenderTitle: 'Tender Name',
-  workName: 'Name of Work',
-  location: 'Work Location',
   district: 'District',
   state: 'State',
   country: 'Country',
   estimatedCost: 'Estimated Cost',
-  tenderValue: 'Tender Value',
-  emdAmount: 'EMD Amount',
-  documentFee: 'Tender / Document Fee',
-  publishingDate: 'Publishing Date',
-  bidStartDate: 'Bid Start Date',
-  bidEndDate: 'Bid End Date / Last Date of Submission',
-  technicalBidDate: 'Technical Bid Opening Date',
-  financialBidDate: 'Financial Bid Opening Date',
   preBidMeetingDate: 'Pre-Bid Meeting Date',
   contactName: 'Contact Person',
   contactDesignation: 'Contact Designation',
   contactEmail: 'Contact Email',
   contactPhone: 'Contact Phone',
   eligibilityCriteria: 'Eligibility Criteria',
-  experienceRequirement: 'Experience Requirement',
-  turnoverRequirement: 'Turnover Requirement',
   manpowerRequirement: 'Manpower Requirement',
   equipmentRequirement: 'Equipment Requirement',
-  completionPeriod: 'Completion Period',
-  contractPeriod: 'Contract Period',
-  performanceSecurity: 'Performance Security / Bank Guarantee',
   paymentTerms: 'Payment Terms',
   penaltyClauses: 'Penalty / Liquidated Damages',
   certificates: 'Required Certificates / Documents',
-  scopeOfWork: 'Scope of Work',
 };
+
+for (const [key, label] of Object.entries(LEGACY_NIT_LABELS)) {
+  if (!NIT_FIELD_LABELS[key as MasterDatasetKey]) {
+    NIT_FIELD_LABELS[key as MasterDatasetKey] = label!;
+  }
+}

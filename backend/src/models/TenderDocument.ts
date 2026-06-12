@@ -25,6 +25,8 @@ export interface ITenderDocument extends Document {
   ocrExtractionMethod?: 'pdf-parse' | 'textract' | 'mammoth';
   ocrQualityMetrics?: IOcrQualityMetrics;
   ocrProcessingTimeMs?: number;
+  serviceCategory?: string;
+  serviceClassificationConfidence?: number;
 }
 
 const tenderDocumentSchema = new Schema<ITenderDocument>(
@@ -61,6 +63,8 @@ const tenderDocumentSchema = new Schema<ITenderDocument>(
       qualityScore: { type: Number },
     },
     ocrProcessingTimeMs: { type: Number },
+    serviceCategory: { type: String, default: '' },
+    serviceClassificationConfidence: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

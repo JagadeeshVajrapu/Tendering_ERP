@@ -4,11 +4,9 @@ import { Tender } from '../../models/Tender';
 import { TenderDocument } from '../../models/TenderDocument';
 import { IntelligenceJob } from '../../models/IntelligenceJob';
 import { MasterTenderDataset } from '../../types/masterDataset';
-import { TenderMasterDataset } from '../../models/TenderMasterDataset';
 import { TenderRiskAnalysis } from '../../models/TenderRiskAnalysis';
-import { DocumentNitExtractedField } from '../../models/DocumentNitExtractedField';
-import { DocumentFieldValidation } from '../../models/DocumentFieldValidation';
-import { masterDatasetService } from '../masterDataset/masterDatasetService';
+import { EnterpriseMasterDatasetParameter } from '../../models/EnterpriseMasterDatasetParameter';
+import { enterpriseMasterDatasetAccess } from '../masterTenderDataset/enterpriseMasterDatasetAccess';
 import { masterDatasetRiskEngine } from './masterDatasetRiskEngine';
 import { TenderRiskAnalysisResult, TenderRiskPrerequisites } from '../../types/tenderRiskAnalysis';
 
@@ -20,16 +18,13 @@ export interface TenderRiskAnalysisStoreContext {
 
 class TenderRiskAnalysisService {
   async checkPrerequisites(documentId: Types.ObjectId): Promise<TenderRiskPrerequisites> {
-    const [extractedCount, validatedCount, masterRecord] = await Promise.all([
-      DocumentNitExtractedField.countDocuments({ documentId }),
-      DocumentFieldValidation.countDocuments({ documentId, valid: true }),
-      TenderMasterDataset.findOne({ documentId }),
-    ]);
+    const paramCount = await EnterpriseMasterDatasetParameter.countDocuments({ documentId });
+    const ready = paramCount > 0;
 
     return {
-      extractionComplete: extractedCount > 0,
-      validationComplete: validatedCount > 0,
-      masterDatasetReady: !!masterRecord,
+      extractionComplete: ready,
+      validationComplete: ready,
+      masterDatasetReady: ready,
     };
   }
 
@@ -47,7 +42,7 @@ class TenderRiskAnalysisService {
     dataset: MasterTenderDataset,
     prerequisites: TenderRiskPrerequisites
   ): Promise<TenderRiskAnalysisResult> {
-    console.log('[RiskAnalysis] Start — master dataset only');
+    console.log('[RiskAnalysis] Start — enterprise master dataset only');
     const result = masterDatasetRiskEngine.analyze(dataset, prerequisites);
     console.log('[RiskAnalysis] End', {
       overallLevel: result.overallLevel,
@@ -60,12 +55,12 @@ class TenderRiskAnalysisService {
   async analyzeAndStore(ctx: TenderRiskAnalysisStoreContext): Promise<TenderRiskAnalysisResult> {
     const prerequisites = await this.assertPrerequisites(ctx.documentId);
 
-    const masterRecord = await TenderMasterDataset.findOne({ documentId: ctx.documentId });
-    if (!masterRecord) {
-      throw new AppError('Master dataset not found. Complete extraction pipeline first.', 400);
-    }
+    const dataset = await enterpriseMasterDatasetAccess.getKeyedDataset(
+      ctx.documentId,
+      ctx.tenderId
+    );
 
-    const result = await this.analyzeFromMasterDataset(masterRecord.dataset, prerequisites);
+    const result = await this.analyzeFromMasterDataset(dataset, prerequisites);
 
     await TenderRiskAnalysis.findOneAndUpdate(
       { documentId: ctx.documentId },
@@ -77,9 +72,9 @@ class TenderRiskAnalysisService {
           risks: result.risks,
           overallLevel: result.overallLevel,
           prerequisites: result.prerequisites,
-          dataSource: 'master_dataset',
+          dataSource: 'enterprise_master_dataset',
           processingTimeMs: result.processingTimeMs,
-          schemaVersion: 1,
+          schemaVersion: 2,
         },
       },
       { upsert: true, new: true }
@@ -117,12 +112,9 @@ class TenderRiskAnalysisService {
 
     const job = await IntelligenceJob.findOne({ documentId: document._id }).sort({ createdAt: -1 });
 
-    // Ensure master dataset exists before risk analysis
-    await masterDatasetService.getOrBuildByDocumentId(
-      document._id,
-      document.tenderId,
-      job?._id
-    );
+    await enterpriseMasterDatasetAccess.getMasterDataset(document._id, document.tenderId, {
+      refresh: false,
+    });
 
     const result = await this.analyzeAndStore({
       tenderId: tender._id,

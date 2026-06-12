@@ -9,7 +9,7 @@ export function resolveUploadsRoot(): string {
   return path.resolve(process.cwd(), 'uploads');
 }
 
-export const UPLOAD_SUBDIRS = ['tenders', 'reports', 'temp'] as const;
+export const UPLOAD_SUBDIRS = ['tenders', 'reports', 'temp', 'preparation'] as const;
 
 export type UploadSubdir = (typeof UPLOAD_SUBDIRS)[number];
 

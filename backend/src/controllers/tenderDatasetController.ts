@@ -9,7 +9,7 @@ import { DocumentFieldValidation, IDocumentFieldValidation } from '../models/Doc
 import { DocumentNitExtractedField, IDocumentNitExtractedField } from '../models/DocumentNitExtractedField';
 import { sendSuccess } from '../utils/apiResponse';
 import { paramId } from '../utils/params';
-import { masterDatasetService } from '../services/masterDataset/masterDatasetService';
+import { validatedMasterDatasetService } from '../services/masterTenderDataset/validatedMasterDatasetService';
 import { MASTER_FIELD_SOURCE_ALIASES } from '../services/masterDataset/masterDatasetFieldRegistry';
 import { MASTER_DATASET_KEYS, MasterDatasetKey, MasterTenderDataset } from '../types/masterDataset';
 
@@ -77,7 +77,8 @@ async function formatDatasetResponse(
   tenderId: string,
   documentId: string,
   originalName: string | undefined,
-  payload: Awaited<ReturnType<typeof masterDatasetService.getOrBuildByDocumentId>>
+  payload: Awaited<ReturnType<typeof validatedMasterDatasetService.getLegacyDatasetForReports>>,
+  validated: Awaited<ReturnType<typeof validatedMasterDatasetService.getOrBuild>>
 ) {
   const enrichedDataset = await enrichDataset(new Types.ObjectId(documentId), payload.dataset);
 
@@ -92,10 +93,20 @@ async function formatDatasetResponse(
     tenderId,
     documentId,
     originalName,
-    schemaVersion: 1,
+    schemaVersion: 3,
     singleSourceOfTruth: true,
+    dataSource: 'validated_master_dataset',
+    parameters: validated.parameters,
     statistics: payload.statistics,
-    provenance: payload.provenance,
+    validatedStatistics: validated.statistics,
+    provenance: {
+      ocrPageCount: 0,
+      ruleExtractedCount: 0,
+      validatedCount: validated.statistics.validatedCount,
+      aiVerifiedCount: 0,
+      confidenceScoredCount: validated.parameters.length,
+      fieldLocatorCount: 0,
+    },
     dataset: enrichedDataset,
     populatedFields: MASTER_DATASET_KEYS.filter((k) => enrichedDataset[k].value.trim()).map((k) => k),
     lowConfidenceFields,
@@ -114,14 +125,13 @@ export const getTenderDataset = asyncHandler(async (req: AuthRequest, res: Respo
   });
   if (!document) throw new AppError('No document found for this tender.', 404);
 
-  const job = await IntelligenceJob.findOne({ documentId: document._id }).sort({ createdAt: -1 });
-  const payload = await masterDatasetService.getOrBuildByDocumentId(
-    document._id,
-    document.tenderId,
-    job?._id
-  );
+  const validated = await validatedMasterDatasetService.getOrBuild(document._id, document.tenderId);
+  const payload = await validatedMasterDatasetService.getLegacyDatasetForReports(document._id);
 
-  sendSuccess(res, await formatDatasetResponse(String(tender._id), String(document._id), document.originalName, payload));
+  sendSuccess(
+    res,
+    await formatDatasetResponse(String(tender._id), String(document._id), document.originalName, payload, validated)
+  );
 });
 
 /** GET /api/debug/:documentId/dataset — master dataset by document (debug / inspection). */
@@ -131,12 +141,11 @@ export const getDocumentDataset = asyncHandler(async (req: AuthRequest, res: Res
   const document = await TenderDocument.findById(documentId);
   if (!document) throw new AppError('Document not found', 404);
 
-  const job = await IntelligenceJob.findOne({ documentId: document._id }).sort({ createdAt: -1 });
-  const payload = await masterDatasetService.getOrBuildByDocumentId(
-    document._id,
-    document.tenderId,
-    job?._id
-  );
+  const validated = await validatedMasterDatasetService.getOrBuild(document._id, document.tenderId);
+  const payload = await validatedMasterDatasetService.getLegacyDatasetForReports(document._id);
 
-  sendSuccess(res, await formatDatasetResponse(String(document.tenderId), String(document._id), document.originalName, payload));
+  sendSuccess(
+    res,
+    await formatDatasetResponse(String(document.tenderId), String(document._id), document.originalName, payload, validated)
+  );
 });

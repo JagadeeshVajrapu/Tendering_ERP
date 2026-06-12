@@ -135,20 +135,17 @@ export const getSummary = asyncHandler(async (req: AuthRequest, res: Response) =
 
 export const submitToMd = asyncHandler(async (req: AuthRequest, res: Response) => {
   const tenderId = paramId(req.params.id);
-  const summary = await TenderSummary.findOne({ tenderId }).sort({ createdAt: -1 });
-  const { FeasibilityReport } = await import('../models/FeasibilityReport');
-  const report = await FeasibilityReport.findOne({ tenderId }).sort({ createdAt: -1 });
-
-  if (!summary && !report) throw new AppError('Generate feasibility report first', 400);
-
-  const referenceId = summary ? String(summary._id) : String(report!._id);
-  const tender = await workflowService.submitToMd(
-    paramId(req.params.id),
-    req.user!._id,
-    req.user!.role,
-    referenceId
+  const { enterpriseFeasibilityWorkflowService } = await import(
+    '../services/report/enterpriseFeasibilityWorkflowService'
   );
-  sendSuccess(res, tender, 'Submitted to MD for approval');
+
+  const result = await enterpriseFeasibilityWorkflowService.submitToMd(
+    tenderId,
+    req.user!._id,
+    req.user!.role
+  );
+  const tender = await Tender.findById(tenderId);
+  sendSuccess(res, { tender, ...result }, 'Submitted to MD for approval');
 });
 
 export const getDashboardStats = asyncHandler(async (req: AuthRequest, res: Response) => {

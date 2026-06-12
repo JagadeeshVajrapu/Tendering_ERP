@@ -39,3 +39,21 @@ export const tenderDocumentUpload = createMemoryUpload(
   ALLOWED_DOCUMENT_EXTENSIONS,
   'PDF, DOCX, PNG, JPEG, TIFF'
 );
+
+/** Document preparation repository: PDF only */
+export const preparationPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: UPLOAD_LIMITS.maxFileSizeBytes,
+    files: 20,
+  },
+  fileFilter: (_req, file, cb) => {
+    const mimeOk = file.mimetype === 'application/pdf';
+    const extOk = /\.pdf$/i.test(file.originalname);
+    if (mimeOk || extOk) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Invalid file type. Allowed: PDF'));
+  },
+});

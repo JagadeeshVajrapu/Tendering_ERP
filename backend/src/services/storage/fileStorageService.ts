@@ -55,6 +55,15 @@ class FileStorageService {
   getAbsolutePath(relativePath: string): string {
     return path.join(this.root, relativePath);
   }
+
+  async deleteFile(relativePath: string): Promise<void> {
+    const absolute = this.getAbsolutePath(relativePath);
+    try {
+      await fs.unlink(absolute);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
+  }
 }
 
 export const fileStorageService = new FileStorageService();
