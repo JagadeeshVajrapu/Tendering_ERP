@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { MisDashboardView } from '@/components/misReporting/MisDashboardView';
 import { useAuthStore } from '@/stores/authStore';
+import { getRoleDashboardPath } from '@/lib/roles';
 
 const MIS_ROLES = new Set(['md', 'finance', 'manager', 'admin']);
 
@@ -16,7 +17,7 @@ export default function ManagementReportsPage() {
 
   useEffect(() => {
     if (user && !MIS_ROLES.has(user.role)) {
-      router.replace('/dashboard/executive');
+      router.replace(getRoleDashboardPath(user.role));
     }
   }, [user, router]);
 

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api';
 import { useAuthStore, getDashboardPath } from '@/stores/authStore';
+import { normalizeUserRole } from '@/lib/roles';
 import { APP_NAME, APP_TAGLINE, APP_DESCRIPTION } from '@/lib/branding';
 import { FileText, Loader2, Shield, Sparkles, Lock, Mail } from 'lucide-react';
 
@@ -26,7 +27,7 @@ const highlights = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const { setAuth, token, user } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('executive@tendererp.com');
   const [password, setPassword] = useState('password123');
@@ -37,14 +38,26 @@ export default function LoginPage() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!mounted || !token || !user) return;
+    const role = normalizeUserRole(user.role);
+    if (role) router.replace(getDashboardPath(role));
+  }, [mounted, token, user, router]);
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
       const res = await api.login(email, password);
-      setAuth(res.data.token, res.data.user);
-      router.push(getDashboardPath(res.data.user.role));
+      const profile = res.data.user;
+      const role = normalizeUserRole(profile.role);
+      if (!role) {
+        setError('Your account has an invalid role. Contact an administrator.');
+        return;
+      }
+      setAuth(res.data.token, { ...profile, role });
+      router.replace(getDashboardPath(role));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

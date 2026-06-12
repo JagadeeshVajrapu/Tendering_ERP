@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AdminDashboardView } from '@/components/admin/AdminDashboardView';
 import { useAuthStore } from '@/stores/authStore';
+import { getRoleDashboardPath } from '@/lib/roles';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (user && user.role !== 'admin') {
-      router.replace('/dashboard/executive');
+      router.replace(getRoleDashboardPath(user.role));
     }
   }, [user, router]);
 

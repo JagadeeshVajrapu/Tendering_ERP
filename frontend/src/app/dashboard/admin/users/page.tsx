@@ -7,6 +7,7 @@ import { ArrowLeft, Users } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AdminUsersView } from '@/components/admin/AdminUsersView';
 import { useAuthStore } from '@/stores/authStore';
+import { getRoleDashboardPath } from '@/lib/roles';
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (user && user.role !== 'admin') {
-      router.replace('/dashboard/executive');
+      router.replace(getRoleDashboardPath(user.role));
     }
   }, [user, router]);
 

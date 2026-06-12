@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { APP_NAME, APP_TAGLINE } from '@/lib/branding';
 import type { UserRole } from '@/types';
+import { normalizeUserRole } from '@/lib/roles';
 
 const navByRole: Record<UserRole, { href: string; label: string; icon: React.ElementType }[]> = {
   executive: [
@@ -66,7 +67,8 @@ function isNavActive(pathname: string, href: string): boolean {
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
-  const items = user ? navByRole[user.role] : [];
+  const role = user ? normalizeUserRole(user.role) : null;
+  const items = role ? navByRole[role] : [];
 
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-950 text-white">

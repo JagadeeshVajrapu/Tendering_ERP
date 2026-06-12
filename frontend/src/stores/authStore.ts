@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
+import { getRoleDashboardPath, normalizeUserRole } from '@/lib/roles';
 
 interface AuthState {
   token: string | null;
   user: User | null;
   setAuth: (token: string, user: User) => void;
+  updateUser: (user: User) => void;
   logout: () => void;
 }
 
@@ -14,7 +16,19 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       user: null,
-      setAuth: (token, user) => set({ token, user }),
+      setAuth: (token, user) => {
+        const role = normalizeUserRole(user.role);
+        if (!role) {
+          set({ token: null, user: null });
+          return;
+        }
+        set({ token, user: { ...user, role } });
+      },
+      updateUser: (user) => {
+        const role = normalizeUserRole(user.role);
+        if (!role) return;
+        set({ user: { ...user, role } });
+      },
       logout: () => set({ token: null, user: null }),
     }),
     { name: 'tender-erp-auth' }
@@ -22,12 +36,5 @@ export const useAuthStore = create<AuthState>()(
 );
 
 export function getDashboardPath(role: string): string {
-  const paths: Record<string, string> = {
-    executive: '/dashboard/executive',
-    md: '/dashboard/md',
-    finance: '/dashboard/finance',
-    manager: '/dashboard/manager',
-    admin: '/dashboard/admin',
-  };
-  return paths[role] || '/dashboard';
+  return getRoleDashboardPath(role);
 }

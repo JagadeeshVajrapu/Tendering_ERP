@@ -1,40 +1,91 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { useAuthStore } from '@/stores/authStore';
 import { NotificationBell } from '@/components/NotificationBell';
-import { getRoleDashboardPath, isExecutiveOnlyPath, canAccessTenderList, getRoleLabel } from '@/lib/roles';
+import {
+  canAccessPath,
+  getRoleDashboardPath,
+  getRoleLabel,
+  normalizeUserRole,
+} from '@/lib/roles';
+import { api } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { token, user } = useAuthStore();
+  const { token, user, updateUser, logout } = useAuthStore();
+  const [profileChecked, setProfileChecked] = useState(false);
 
+  // Sync user profile from server (fixes stale role after switching accounts)
   useEffect(() => {
     if (!token) {
+      setProfileChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    setProfileChecked(false);
+
+    api
+      .getProfile(token)
+      .then((res) => {
+        if (cancelled) return;
+        const profile = res.data;
+        const role = normalizeUserRole(profile.role);
+        if (!role) {
+          logout();
+          router.replace('/login');
+          return;
+        }
+        updateUser({ ...profile, role });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          logout();
+          router.replace('/login');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setProfileChecked(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, updateUser, logout, router]);
+
+  // Auth + role-based route guard
+  useEffect(() => {
+    if (!profileChecked) return;
+
+    if (!token || !user) {
       router.replace('/login');
       return;
     }
-    if (!user) return;
 
-    if (isExecutiveOnlyPath(pathname) && user.role !== 'executive') {
-      router.replace(getRoleDashboardPath(user.role));
-      return;
-    }
-
-    if (pathname.startsWith('/tenders') && !canAccessTenderList(user.role) && !pathname.includes('/report')) {
+    if (!canAccessPath(pathname, user.role)) {
       router.replace(getRoleDashboardPath(user.role));
     }
-  }, [token, user, pathname, router]);
+  }, [token, user, pathname, router, profileChecked]);
 
-  if (!token || !user) {
+  if (!token || !user || !profileChecked) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         <p className="text-sm text-muted-foreground">Loading your workspace…</p>
+      </div>
+    );
+  }
+
+  if (!canAccessPath(pathname, user.role)) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="text-sm text-muted-foreground">Redirecting to your dashboard…</p>
       </div>
     );
   }
