@@ -1240,4 +1240,176 @@ export const api = {
       token,
       method: 'POST',
     }),
+
+  getPostAwardDashboard: (
+    token: string,
+    params?: {
+      q?: string;
+      match?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: string;
+      expiringWithinDays?: number;
+    }
+  ) => {
+    const qs = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v != null && v !== '') qs.set(k, String(v));
+    });
+    const query = qs.toString();
+    return request<{ data: import('@/types/postAward').PostAwardDashboard }>(
+      `/post-award/dashboard${query ? `?${query}` : ''}`,
+      { token }
+    );
+  },
+
+  getTenderPostAward: (token: string, tenderId: string) =>
+    request<{
+      data: { available: boolean; contract: import('@/types/postAward').PostAwardContractDetail | null };
+    }>(`/tenders/${tenderId}/post-award`, { token }),
+
+  markTenderAwarded: (token: string, tenderId: string) =>
+    request<{ data: { tender: { id: string; status: string }; contract: import('@/types/postAward').PostAwardContract } }>(
+      `/tenders/${tenderId}/post-award/award`,
+      { token, method: 'POST' }
+    ),
+
+  updatePostAwardContract: (
+    token: string,
+    tenderId: string,
+    body: Record<string, unknown>
+  ) =>
+    request<{ data: import('@/types/postAward').PostAwardContract }>(
+      `/tenders/${tenderId}/post-award/contract`,
+      { token, method: 'PUT', body: JSON.stringify(body) }
+    ),
+
+  addPostAwardRevenue: (
+    token: string,
+    tenderId: string,
+    body: { description: string; amount: number; dueDate?: string }
+  ) =>
+    request(`/tenders/${tenderId}/post-award/revenue`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  approvePostAwardRevenue: (token: string, tenderId: string, revenueId: string, approved = true) =>
+    request(`/tenders/${tenderId}/post-award/revenue/${revenueId}/approve`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify({ approved }),
+    }),
+
+  addPostAwardBilling: (
+    token: string,
+    tenderId: string,
+    body: { description: string; amount: number; invoiceNumber?: string; billingDate?: string }
+  ) =>
+    request(`/tenders/${tenderId}/post-award/billing`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  approvePostAwardBilling: (token: string, tenderId: string, billingId: string, approved = true) =>
+    request(`/tenders/${tenderId}/post-award/billing/${billingId}/approve`, {
+      token,
+      method: 'POST',
+      body: JSON.stringify({ approved }),
+    }),
+
+  uploadPostAwardDocument: (
+    token: string,
+    tenderId: string,
+    file: File,
+    documentType: string,
+    documentNumber?: string
+  ) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('documentType', documentType);
+    if (documentNumber) form.append('documentNumber', documentNumber);
+    return request(`/tenders/${tenderId}/post-award/documents`, {
+      token,
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  checkPostAwardAvailability: (token: string, tenderId: string) =>
+    request<{ data: { available: boolean } }>(`/post-award/availability/${tenderId}`, { token }),
+
+  getMisDashboard: (token: string, filters?: import('@/types/misReporting').MisFilterQuery) => {
+    const params = new URLSearchParams();
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters?.serviceCategory) params.set('serviceCategory', filters.serviceCategory);
+    if (filters?.clientName) params.set('clientName', filters.clientName);
+    if (filters?.tenderStatus) params.set('tenderStatus', filters.tenderStatus);
+    if (filters?.contractStatus) params.set('contractStatus', filters.contractStatus);
+    const query = params.toString();
+    return request<{ data: import('@/types/misReporting').MisDashboard }>(
+      `/mis/dashboard${query ? `?${query}` : ''}`,
+      { token }
+    );
+  },
+
+  getMisSearch: (
+    token: string,
+    q: string,
+    filters?: import('@/types/misReporting').MisFilterQuery
+  ) => {
+    const params = new URLSearchParams({ q });
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters?.serviceCategory) params.set('serviceCategory', filters.serviceCategory);
+    if (filters?.clientName) params.set('clientName', filters.clientName);
+    if (filters?.tenderStatus) params.set('tenderStatus', filters.tenderStatus);
+    if (filters?.contractStatus) params.set('contractStatus', filters.contractStatus);
+    return request<{ data: import('@/types/misReporting').MisSearchResult[] }>(
+      `/mis/search?${params.toString()}`,
+      { token }
+    );
+  },
+
+  getAdminDashboard: (token: string) =>
+    request<{ data: import('@/types/adminDashboard').AdminDashboard }>('/admin/dashboard', {
+      token,
+    }),
+
+  listAdminUsers: (token: string) =>
+    request<{ data: import('@/types/adminDashboard').AdminUser[] }>('/admin/users', { token }),
+
+  updateAdminUser: (
+    token: string,
+    userId: string,
+    body: { role?: string; isActive?: boolean; department?: string }
+  ) =>
+    request<{ data: import('@/types/adminDashboard').AdminUser }>(`/admin/users/${userId}`, {
+      token,
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  getMisRecentActivity: (
+    token: string,
+    filters?: import('@/types/misReporting').MisFilterQuery,
+    limit = 30
+  ) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters?.serviceCategory) params.set('serviceCategory', filters.serviceCategory);
+    if (filters?.clientName) params.set('clientName', filters.clientName);
+    if (filters?.tenderStatus) params.set('tenderStatus', filters.tenderStatus);
+    if (filters?.contractStatus) params.set('contractStatus', filters.contractStatus);
+    return request<{ data: import('@/types/misReporting').MisRecentActivity[] }>(
+      `/mis/recent-activity?${params.toString()}`,
+      { token }
+    );
+  },
 };

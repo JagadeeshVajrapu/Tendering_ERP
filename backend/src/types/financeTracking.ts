@@ -34,6 +34,41 @@ export interface FinanceSummaryDto {
   securityDepositAmount: number;
   pbgAmount: number;
   pendingRefundAmount: number;
+  totalCommitted: number;
+}
+
+export type FinancialRequirementStatus =
+  | 'not_required'
+  | 'pending'
+  | 'partial'
+  | 'complete'
+  | 'overpaid'
+  | 'informational';
+
+export interface TenderFinancialRequirementDto {
+  label: string;
+  recordType?: FinanceRecordType;
+  requiredAmount?: number;
+  requiredDisplay?: string;
+  trackedAmount: number;
+  remainingAmount: number;
+  status: FinancialRequirementStatus;
+}
+
+export interface TenderFinancialContextDto {
+  estimatedBidValue?: number;
+  estimatedBidValueDisplay?: string;
+  requiredEmd?: number;
+  requiredEmdDisplay?: string;
+  tenderFee?: number;
+  tenderFeeDisplay?: string;
+  performanceSecurityDisplay?: string;
+  bidSubmissionDeadline?: string;
+  source: 'nit_analysis' | 'tender_record' | 'none';
+  requirements: TenderFinancialRequirementDto[];
+  totalRequired: number;
+  totalTracked: number;
+  totalRemaining: number;
 }
 
 export interface FinanceRecordDto {
@@ -130,6 +165,7 @@ export interface RefundReportItemDto {
 export interface FinanceDashboardDto {
   tenderId: string;
   tenderName: string;
+  financialContext: TenderFinancialContextDto;
   summary: FinanceSummaryDto;
   records: {
     items: FinanceRecordDto[];

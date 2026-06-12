@@ -3,6 +3,7 @@ export enum UserRole {
   MD = 'md',
   FINANCE = 'finance',
   MANAGER = 'manager',
+  ADMIN = 'admin',
 }
 
 export enum TenderStatus {
@@ -18,6 +19,8 @@ export enum TenderStatus {
   MANAGER_PENDING = 'MANAGER_PENDING',
   MANAGER_APPROVED = 'MANAGER_APPROVED',
   READY_FOR_BID = 'READY_FOR_BID',
+  SUBMITTED = 'SUBMITTED',
+  AWARDED = 'AWARDED',
 }
 
 export enum EligibilityStatus {
@@ -63,6 +66,7 @@ export enum NotificationType {
   COMPLIANCE_REQUEST = 'COMPLIANCE_REQUEST',
   DOCUMENT_SIGNING = 'DOCUMENT_SIGNING',
   SUBMISSION_ALERT = 'SUBMISSION_ALERT',
+  POST_AWARD_ALERT = 'POST_AWARD_ALERT',
   SYSTEM = 'SYSTEM',
 }
 
@@ -83,6 +87,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'tender:track',
     'finance:track',
     'finance:comment',
+    'postaward:read',
+    'postaward:write',
   ],
   [UserRole.MD]: [
     'tender:read',
@@ -90,6 +96,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'nit:view',
     'approval:md',
     'document:sign',
+    'postaward:read',
+    'postaward:admin',
+    'mis:read',
+    'mis:full',
+    'mis:finance',
+    'mis:contracts',
+    'mis:export',
   ],
   [UserRole.FINANCE]: [
     'tender:read',
@@ -99,6 +112,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'finance:update_payment',
     'finance:track',
     'finance:comment',
+    'postaward:read',
+    'mis:read',
+    'mis:finance',
   ],
   [UserRole.MANAGER]: [
     'compliance:read',
@@ -111,5 +127,27 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'document:workflow',
     'finance:track',
     'finance:comment',
+    'postaward:read',
+    'postaward:approve',
+    'postaward:renewal',
+    'mis:read',
+    'mis:contracts',
+  ],
+  [UserRole.ADMIN]: [
+    'tender:read',
+    'nit:view',
+    'summary:view',
+    'finance:read',
+    'finance:track',
+    'postaward:read',
+    'postaward:admin',
+    'mis:read',
+    'mis:full',
+    'mis:finance',
+    'mis:contracts',
+    'mis:export',
+    'admin:read',
+    'admin:users',
+    'admin:manage',
   ],
 };

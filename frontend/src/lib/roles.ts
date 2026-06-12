@@ -6,6 +6,7 @@ export function getRoleDashboardPath(role: UserRole): string {
     md: '/dashboard/md',
     finance: '/dashboard/finance',
     manager: '/dashboard/manager',
+    admin: '/dashboard/admin',
   };
   return paths[role];
 }
@@ -16,6 +17,7 @@ export function getRoleLabel(role: UserRole): string {
     md: 'Managing Director',
     finance: 'Finance',
     manager: 'Compliance Manager',
+    admin: 'Administrator',
   };
   return labels[role];
 }
@@ -28,5 +30,5 @@ export function isExecutiveOnlyPath(pathname: string): boolean {
 }
 
 export function canAccessTenderList(role: UserRole): boolean {
-  return role === 'executive';
+  return role === 'executive' || role === 'admin';
 }

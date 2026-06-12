@@ -128,7 +128,7 @@ class EnterpriseFeasibilityReportService {
       enterpriseReport: enterprise,
     });
 
-    await tenderRepository.setStatus(tenderId, TenderStatus.SUMMARY_GENERATED, 'MD Report Generated');
+    await tenderRepository.setStatus(tenderId, TenderStatus.SUMMARY_GENERATED, 'Report Generated');
 
     console.log('[EnterpriseFeasibility] Generated', {
       tenderId,

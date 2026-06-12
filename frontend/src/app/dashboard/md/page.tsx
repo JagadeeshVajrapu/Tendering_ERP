@@ -12,7 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/lib/utils';
-import { Clock, CheckCircle, XCircle, FileText, User } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, FileText, User, Scale } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ErrorState, LoadingState, StatCardSkeleton } from '@/components/shared/QueryState';
 import { useState } from 'react';
 import Link from 'next/link';
 import type { MdApprovalRecord } from '@/types';
@@ -22,7 +24,7 @@ export default function MdDashboard() {
   const qc = useQueryClient();
   const [comments, setComments] = useState<Record<string, string>>({});
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard', 'md'],
     queryFn: () => api.getMdDashboard(token!),
     enabled: !!token,
@@ -101,17 +103,25 @@ export default function MdDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Feasibility Review Desk</h1>
-        <p className="text-muted-foreground">Review executive feasibility reports and record MD decisions</p>
-      </div>
+      <PageHeader
+        title="Feasibility Review Desk"
+        description="Review executive feasibility reports and record MD decisions."
+        icon={Scale}
+        iconClassName="text-indigo-600"
+      />
 
-      <div className="mb-8 grid gap-4 md:grid-cols-4">
-        <StatCard title="Pending Review" value={pending.length} icon={Clock} />
-        <StatCard title="Approved" value={dashboard?.approved as number || 0} icon={CheckCircle} />
-        <StatCard title="Rejected" value={dashboard?.rejected as number || 0} icon={XCircle} />
-        <StatCard title="Total Submitted" value={dashboard?.totalSubmitted as number || 0} icon={FileText} />
-      </div>
+      {isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <StatCardSkeleton count={4} />
+      ) : (
+        <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <StatCard title="Pending Review" value={pending.length} icon={Clock} />
+          <StatCard title="Approved" value={(dashboard?.approved as number) || 0} icon={CheckCircle} />
+          <StatCard title="Rejected" value={(dashboard?.rejected as number) || 0} icon={XCircle} />
+          <StatCard title="Total Submitted" value={(dashboard?.totalSubmitted as number) || 0} icon={FileText} />
+        </div>
+      )}
 
       <Tabs defaultValue="pending">
         <TabsList>
@@ -120,8 +130,8 @@ export default function MdDashboard() {
         </TabsList>
 
         <TabsContent value="pending" className="mt-6 space-y-4">
-          {isLoading && <p className="text-muted-foreground">Loading...</p>}
-          {pending.map((approval) => {
+          {isLoading && <LoadingState message="Loading pending reviews…" />}
+          {!isLoading && pending.map((approval) => {
             const tender = approval.tenderId;
             if (!tender) return null;
             const executive = approval.requestedBy || tender.createdBy;

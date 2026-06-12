@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/lib/errorMessage';
+import { ErrorState, LoadingState } from '@/components/shared/QueryState';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { FinanceWorkflowRequest } from '@/types/financeWorkflow';
 import { REQUEST_TYPE_LABELS } from '@/types/financeWorkflow';
@@ -54,7 +55,7 @@ export function FinanceApprovalDashboard({ token, canApprove }: Props) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, error: queryError, refetch, isFetching } = useQuery({
     queryKey: ['finance-approval-dashboard'],
     queryFn: () => api.getFinanceApprovalDashboard(token),
     enabled: !!token,
@@ -194,20 +195,11 @@ export function FinanceApprovalDashboard({ token, canApprove }: Props) {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center py-20 text-muted-foreground">
-        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-600" />
-        Loading finance approval dashboard…
-      </div>
-    );
+    return <LoadingState message="Loading finance approval dashboard…" />;
   }
 
-  if (!dashboard) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
-        Unable to load finance approval dashboard.
-      </div>
-    );
+  if (isError || !dashboard) {
+    return <ErrorState error={queryError} onRetry={() => refetch()} title="Unable to load finance approvals" />;
   }
 
   const widgets = [

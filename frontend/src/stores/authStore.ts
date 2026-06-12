@@ -27,6 +27,7 @@ export function getDashboardPath(role: string): string {
     md: '/dashboard/md',
     finance: '/dashboard/finance',
     manager: '/dashboard/manager',
+    admin: '/dashboard/admin',
   };
   return paths[role] || '/dashboard';
 }

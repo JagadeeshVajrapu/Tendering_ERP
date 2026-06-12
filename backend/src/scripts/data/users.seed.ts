@@ -60,6 +60,16 @@ export const seedUsers: SeedUser[] = [
     department: 'Compliance',
     isActive: true,
   },
+
+  // Admin (Management Control Center)
+  {
+    name: 'System Admin',
+    email: 'admin@tendererp.com',
+    password: 'password123',
+    role: UserRole.ADMIN,
+    department: 'Administration',
+    isActive: true,
+  },
 ];
 
 export const DEFAULT_SEED_PASSWORD = 'password123';

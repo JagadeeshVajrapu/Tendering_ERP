@@ -9,7 +9,9 @@ import { TenderSubmissionTracking } from '../../models/TenderSubmissionTracking'
 import { TenderSubmissionScreenshot } from '../../models/TenderSubmissionScreenshot';
 import { TenderSubmissionLog } from '../../models/TenderSubmissionLog';
 import { User } from '../../models/User';
-import { UserRole, NotificationType } from '../../types';
+import { UserRole, NotificationType, TenderStatus } from '../../types';
+import { ITender } from '../../models/Tender';
+import { ITenderSubmissionTracking } from '../../models/TenderSubmissionTracking';
 import {
   SubmissionDeadlineAlertLevel,
   SubmissionDeadlineDto,
@@ -24,6 +26,7 @@ import { fileStorageService } from '../storage/fileStorageService';
 import { auditService } from '../audit/auditService';
 import { notificationService } from '../notification/notificationService';
 import { assertSubmissionWritable } from './submissionLockGuard';
+import { postAwardService } from '../postAward/postAwardService';
 
 const ALERT_THRESHOLDS: Array<{ level: SubmissionDeadlineAlertLevel; ms: number; message: string }> = [
   { level: '7_days', ms: 7 * 24 * 60 * 60 * 1000, message: '7 days remaining until submission deadline' },
@@ -45,6 +48,38 @@ interface RequestContext {
 }
 
 class SubmissionTrackingService {
+  /** Keep tender.status/currentStage aligned with submission tracking (fixes stale header labels). */
+  private async syncTenderWithSubmission(tender: ITender, tracking: ITenderSubmissionTracking) {
+    if (tracking.status === 'submitted') {
+      let changed = false;
+      if (tender.status !== TenderStatus.SUBMITTED && tender.status !== TenderStatus.AWARDED) {
+        tender.status = TenderStatus.SUBMITTED;
+        changed = true;
+      }
+      if (tender.currentStage !== 'Submitted') {
+        tender.currentStage = 'Submitted';
+        changed = true;
+      }
+      if (tracking.readinessLabel !== 'Submitted to portal') {
+        tracking.readinessLabel = 'Submitted to portal';
+        await tracking.save();
+      }
+      if (changed) await tender.save();
+      return;
+    }
+
+    if (tracking.status === 'locked') {
+      if (
+        tender.status !== TenderStatus.SUBMITTED &&
+        tender.status !== TenderStatus.AWARDED &&
+        tender.currentStage !== 'Submission Locked'
+      ) {
+        tender.currentStage = 'Submission Locked';
+        await tender.save();
+      }
+    }
+  }
+
   private async logAction(
     tenderId: string,
     ctx: RequestContext,
@@ -293,8 +328,12 @@ class SubmissionTrackingService {
       });
     } else {
       tracking.completionPercentage = checklist.completionPercentage;
-      tracking.readinessLabel = checklist.readinessLabel;
       tracking.mandatoryComplete = checklist.mandatoryComplete;
+      if (tracking.status === 'submitted') {
+        tracking.readinessLabel = 'Submitted to portal';
+      } else if (tracking.status !== 'locked') {
+        tracking.readinessLabel = checklist.readinessLabel;
+      }
       if (deadlineAt) {
         tracking.deadlineAt = deadlineAt;
         tracking.deadlineLabel = deadlineLabel;
@@ -305,6 +344,8 @@ class SubmissionTrackingService {
       tracking.checklistSnapshot = { ...(checklist.checklistSnapshot as object) };
       await tracking.save();
     }
+
+    await this.syncTenderWithSubmission(tender, tracking);
 
     const deadline = this.computeDeadlineDto(tracking.deadlineAt, tracking.deadlineLabel);
     const activeAlerts = ALERT_THRESHOLDS.filter(
@@ -454,6 +495,7 @@ class SubmissionTrackingService {
         submittedAt: new Date(),
         submittedBy: ctx.userId,
         submissionNotes: notes?.trim() || undefined,
+        readinessLabel: 'Submitted to portal',
       },
       { upsert: true }
     );
@@ -471,6 +513,8 @@ class SubmissionTrackingService {
       'submission_tracking',
       new Types.ObjectId(tenderId)
     );
+
+    await postAwardService.markTenderSubmitted(tenderId);
 
     return this.getDashboard(tenderId);
   }

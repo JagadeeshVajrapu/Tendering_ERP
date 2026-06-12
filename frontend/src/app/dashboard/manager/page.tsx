@@ -10,7 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/lib/utils';
-import { Clock, CheckCircle, Upload, FileText, Download } from 'lucide-react';
+import { CheckCircle, Upload, FileText, Download, ShieldCheck, Clock } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { ErrorState, LoadingState, StatCardSkeleton } from '@/components/shared/QueryState';
 import { useRef } from 'react';
 import type { ComplianceDocument, ComplianceRequestRecord } from '@/types';
 
@@ -28,7 +31,7 @@ export default function ManagerDashboard() {
   const qc = useQueryClient();
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard', 'manager'],
     queryFn: () => api.getManagerDashboard(token!),
     enabled: !!token,
@@ -102,21 +105,23 @@ export default function ManagerDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Compliance Desk</h1>
-        <p className="text-muted-foreground">Fulfill executive compliance requests and upload documents</p>
-      </div>
+      <PageHeader
+        title="Compliance Desk"
+        description="Fulfill executive compliance requests and upload documents."
+        icon={ShieldCheck}
+        iconClassName="text-purple-600"
+      />
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pending Requests</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{pending.length}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{completed.length}</p></CardContent>
-        </Card>
-      </div>
+      {isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <StatCardSkeleton count={2} />
+      ) : (
+        <div className="mb-8 grid gap-4 md:grid-cols-2">
+          <StatCard title="Pending Requests" value={pending.length} icon={Clock} />
+          <StatCard title="Completed" value={completed.length} icon={CheckCircle} />
+        </div>
+      )}
 
       <Tabs defaultValue="pending">
         <TabsList>
@@ -125,8 +130,8 @@ export default function ManagerDashboard() {
         </TabsList>
 
         <TabsContent value="pending" className="mt-6 space-y-4">
-          {isLoading && <p>Loading...</p>}
-          {pending.map((req) => (
+          {isLoading && <LoadingState message="Loading compliance requests…" />}
+          {!isLoading && pending.map((req) => (
             <Card key={req._id}>
               <CardHeader>
                 <CardTitle className="text-lg">{req.tenderId?.title}</CardTitle>

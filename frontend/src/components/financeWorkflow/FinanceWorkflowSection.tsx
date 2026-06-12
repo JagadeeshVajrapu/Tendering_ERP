@@ -81,6 +81,7 @@ export function FinanceWorkflowSection({ token, tenderId, canEdit }: Props) {
       setMessage('Request submitted for approval');
       setError('');
       void queryClient.invalidateQueries({ queryKey: ['tender-finance-requests', tenderId] });
+      void queryClient.invalidateQueries({ queryKey: ['finance-tracking', tenderId] });
       void queryClient.invalidateQueries({ queryKey: ['finance-approval-dashboard'] });
       void refetch();
     },

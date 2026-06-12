@@ -32,7 +32,7 @@ export function TenderWorkflowPanel({ token, tenderId }: { token: string; tender
   return (
     <div className="mb-8 grid gap-4 lg:grid-cols-2">
       {finance.length > 0 && (
-        <Card>
+        <Card className="border-slate-100 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <IndianRupee className="h-5 w-5" /> Finance & Payments

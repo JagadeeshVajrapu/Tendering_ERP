@@ -3,19 +3,21 @@
 import { use } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useChecklistWorkflowMutation } from '@/components/tender/checklist/useChecklistWorkflowMutation';
-import Link from 'next/link';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ProfessionalNitChecklistView } from '@/components/tender/checklist/ProfessionalNitChecklistView';
+import { TenderPageHeader } from '@/components/tender/TenderPageHeader';
+import { useTenderNavContext } from '@/components/tender/useTenderNavContext';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { getErrorMessage } from '@/lib/errorMessage';
-import { ArrowLeft, CheckSquare, Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 export default function TenderChecklistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { token, user } = useAuthStore();
   const queryClient = useQueryClient();
+  const { tender, analysisComplete, hasReport, submissionStatus } = useTenderNavContext(id);
 
   const {
     data: checklistResponse,
@@ -45,23 +47,21 @@ export default function TenderChecklistPage({ params }: { params: Promise<{ id: 
 
   return (
     <DashboardLayout>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Link
-            href={`/tenders/${id}`}
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Tender
-          </Link>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-            <CheckSquare className="h-6 w-6 text-blue-700" />
-            Checklist &amp; Compliance Module
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            AI-driven document requirement detection with executive verification, section-wise compliance tracking, and tender readiness monitoring.
-          </p>
-        </div>
+      <TenderPageHeader
+        tenderId={id}
+        title={tender?.title}
+        status={tender?.status}
+        currentStage={tender?.currentStage}
+        submissionStatus={submissionStatus}
+        userRole={user?.role}
+        analysisComplete={analysisComplete}
+        hasReport={hasReport}
+        showBack
+        pageTitle="Checklist & Compliance"
+        pageDescription="Mandatory and optional compliance documents generated from NIT analysis."
+      />
+
+      <div className="mb-6 flex justify-end">
         <Button
           variant="outline"
           size="sm"

@@ -52,6 +52,19 @@ import {
   addTenderFinanceComment,
   syncTenderFinanceWorkflow,
 } from '../controllers/financeWorkflowController';
+import {
+  getTenderPostAward,
+  markTenderAwarded,
+  updatePostAwardContract,
+  addPostAwardRevenue,
+  approvePostAwardRevenue,
+  receivePostAwardRevenue,
+  addPostAwardBilling,
+  approvePostAwardBilling,
+  uploadPostAwardDocument,
+  downloadPostAwardDocument,
+  deletePostAwardRecord,
+} from '../controllers/postAwardController';
 
 const router = Router();
 
@@ -123,6 +136,32 @@ router.post('/:id/finance/renewal/request', financeWriteAuth, createTenderRenewa
 router.post('/:id/finance/task/create', financeWriteAuth, createTenderFinanceTask);
 router.post('/:id/finance/comment/add', financeReadAuth, addTenderFinanceComment);
 router.post('/:id/finance/workflow/sync', financeReadAuth, syncTenderFinanceWorkflow);
+
+const postAwardRead = authorize('postaward:read', 'tender:read');
+const postAwardWrite = authorize('postaward:write', 'tender:update');
+const postAwardApprove = authorize('postaward:approve', 'compliance:approve');
+const postAwardAdmin = authorize('postaward:admin');
+
+router.get('/:id/post-award', postAwardRead, getTenderPostAward);
+router.post('/:id/post-award/award', postAwardWrite, markTenderAwarded);
+router.put('/:id/post-award/contract', postAwardWrite, updatePostAwardContract);
+router.post('/:id/post-award/revenue', postAwardWrite, addPostAwardRevenue);
+router.post('/:id/post-award/revenue/:revenueId/approve', postAwardApprove, approvePostAwardRevenue);
+router.post('/:id/post-award/revenue/:revenueId/receive', postAwardWrite, receivePostAwardRevenue);
+router.post('/:id/post-award/billing', postAwardWrite, addPostAwardBilling);
+router.post('/:id/post-award/billing/:billingId/approve', postAwardApprove, approvePostAwardBilling);
+router.post(
+  '/:id/post-award/documents',
+  postAwardWrite,
+  tenderDocumentUpload.single('file'),
+  uploadPostAwardDocument
+);
+router.get(
+  '/:id/post-award/documents/:documentId/download',
+  postAwardRead,
+  downloadPostAwardDocument
+);
+router.delete('/:id/post-award/:type/:recordId', postAwardAdmin, deletePostAwardRecord);
 
 router.get('/:id', authorize('tender:read'), getTenderById);
 

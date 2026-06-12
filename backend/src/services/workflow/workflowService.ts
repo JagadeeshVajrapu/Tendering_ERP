@@ -232,17 +232,19 @@ class WorkflowService {
   private getStageLabel(status: TenderStatus): string {
     const labels: Record<TenderStatus, string> = {
       [TenderStatus.DRAFT]: 'Draft',
-      [TenderStatus.NIT_ANALYZED]: 'NIT Analyzed',
-      [TenderStatus.SUMMARY_GENERATED]: 'Summary Generated',
+      [TenderStatus.NIT_ANALYZED]: 'Analysis Completed',
+      [TenderStatus.SUMMARY_GENERATED]: 'Report Generated',
       [TenderStatus.PENDING_MD_APPROVAL]: 'Pending MD Approval',
       [TenderStatus.APPROVED_BY_MD]: 'Approved by MD',
       [TenderStatus.REJECTED_BY_MD]: 'Rejected by MD',
       [TenderStatus.FINANCE_PENDING]: 'Finance Pending',
       [TenderStatus.FINANCE_APPROVED]: 'Finance Approved',
       [TenderStatus.FINANCE_REJECTED]: 'Finance Rejected',
-      [TenderStatus.MANAGER_PENDING]: 'Manager Pending',
-      [TenderStatus.MANAGER_APPROVED]: 'Manager Approved',
+      [TenderStatus.MANAGER_PENDING]: 'Compliance Pending',
+      [TenderStatus.MANAGER_APPROVED]: 'Compliance Approved',
       [TenderStatus.READY_FOR_BID]: 'Ready for Bid',
+      [TenderStatus.SUBMITTED]: 'Submitted',
+      [TenderStatus.AWARDED]: 'Awarded',
     };
     return labels[status] || status;
   }

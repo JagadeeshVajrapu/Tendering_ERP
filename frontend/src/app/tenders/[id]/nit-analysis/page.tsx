@@ -1,14 +1,15 @@
 'use client';
 
 import { use, useCallback } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { NitAnalysisReportView } from '@/components/tender/nit-analysis/NitAnalysisReportView';
+import { TenderPageHeader } from '@/components/tender/TenderPageHeader';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { ArrowLeft, Download, FileSpreadsheet, FileText, Loader2, Printer, RefreshCw } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Loader2, Printer, RefreshCw } from 'lucide-react';
 import { getErrorMessage } from '@/lib/errorMessage';
 import {
   exportNitAnalysisExcel,
@@ -32,6 +33,14 @@ export default function TenderNitAnalysisPage({ params }: { params: Promise<{ id
     queryFn: () => api.getTenderAnalysis(token!, id),
     enabled: !!token,
     retry: false,
+  });
+
+  const { data: submissionData } = useQuery({
+    queryKey: ['submission-tracking', id],
+    queryFn: () => api.getSubmissionTrackingDashboard(token!, id),
+    enabled: !!token,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const job = analysisData?.data?.job;
@@ -64,30 +73,33 @@ export default function TenderNitAnalysisPage({ params }: { params: Promise<{ id
   }, [refreshMutation]);
 
   const tender = tenderData?.data;
+  const submissionStatus = submissionData?.data?.submissionStatus;
   const report = reportResponse?.data;
+  const analysisComplete = job?.status === 'completed';
+  const hasReport = !!analysisData?.data?.report;
   const showInitialLoader = isLoading && !report;
   const isRefreshing = isFetching || refreshMutation.isPending;
 
   return (
     <DashboardLayout>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between no-print">
-        <div>
-          <Link
-            href={`/tenders/${id}`}
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Tender
-          </Link>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-            <FileText className="h-6 w-6 text-blue-700" />
-            Professional NIT Analysis
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enterprise master dataset — nine intelligence sections with validated parameters and
-            an auto-generated Checklist &amp; Compliance module below the analysis table.
-          </p>
-        </div>
+      <div className="no-print">
+        <TenderPageHeader
+          tenderId={id}
+          title={tender?.title}
+          status={tender?.status}
+          currentStage={tender?.currentStage}
+          submissionStatus={submissionStatus}
+          userRole={user?.role}
+          analysisComplete={analysisComplete}
+          hasReport={hasReport}
+          showBack
+          pageTitle="NIT Analysis"
+          pageDescription="Enterprise master dataset with validated parameters and compliance insights."
+        />
+      </div>
+
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end no-print">
+        <div className="hidden sm:block" />
         <div className="flex gap-2">
           <Button
             variant="outline"

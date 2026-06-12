@@ -2,6 +2,9 @@ import fs from 'fs/promises';
 import { FilterQuery, Types } from 'mongoose';
 import { AppError } from '../../middleware/errorHandler';
 import { Tender } from '../../models/Tender';
+import { TenderDocument } from '../../models/TenderDocument';
+import { enterpriseMasterDatasetAccess } from '../masterTenderDataset/enterpriseMasterDatasetAccess';
+import { parseAmount } from '../../utils/parseAmount';
 import { FinanceRecord, IFinanceRecord } from '../../models/FinanceRecord';
 import { FinanceDocument } from '../../models/FinanceDocument';
 import { RefundRecord } from '../../models/RefundRecord';
@@ -19,6 +22,9 @@ import {
   FinanceRecordListQuery,
   FinanceRecordType,
   FinanceSummaryDto,
+  FinancialRequirementStatus,
+  TenderFinancialContextDto,
+  TenderFinancialRequirementDto,
   RefundRecordDto,
   RefundReportItemDto,
   RefundStatus,
@@ -267,14 +273,155 @@ class FinanceTrackingService {
       .filter((r) => r.status !== 'received')
       .reduce((sum, r) => sum + r.amount, 0);
 
+    const emdAmount = sumByType('EMD');
+    const bgAmount = sumByType('BG');
+    const ddAmount = sumByType('DD');
+    const tenderFeeAmount = sumByType('TENDER_FEE');
+    const securityDepositAmount = sumByType('SECURITY_DEPOSIT');
+    const pbgAmount = sumByType('PBG');
+
     return {
-      emdAmount: sumByType('EMD'),
-      bgAmount: sumByType('BG'),
-      ddAmount: sumByType('DD'),
-      tenderFeeAmount: sumByType('TENDER_FEE'),
-      securityDepositAmount: sumByType('SECURITY_DEPOSIT'),
-      pbgAmount: sumByType('PBG'),
+      emdAmount,
+      bgAmount,
+      ddAmount,
+      tenderFeeAmount,
+      securityDepositAmount,
+      pbgAmount,
       pendingRefundAmount,
+      totalCommitted:
+        emdAmount + bgAmount + ddAmount + tenderFeeAmount + securityDepositAmount + pbgAmount,
+    };
+  }
+
+  private resolveRequirementStatus(
+    required: number,
+    tracked: number
+  ): FinancialRequirementStatus {
+    if (required <= 0) {
+      return tracked > 0 ? 'complete' : 'not_required';
+    }
+    if (tracked >= required) return tracked > required ? 'overpaid' : 'complete';
+    if (tracked > 0) return 'partial';
+    return 'pending';
+  }
+
+  private buildRequirement(
+    label: string,
+    required: number,
+    display: string | undefined,
+    tracked: number,
+    recordType?: FinanceRecordType,
+    informational = false
+  ): TenderFinancialRequirementDto {
+    const status: FinancialRequirementStatus = informational
+      ? 'informational'
+      : this.resolveRequirementStatus(required, tracked);
+
+    return {
+      label,
+      recordType,
+      requiredAmount: required > 0 ? required : undefined,
+      requiredDisplay: display?.trim() || undefined,
+      trackedAmount: tracked,
+      remainingAmount: required > 0 ? Math.max(0, required - tracked) : 0,
+      status,
+    };
+  }
+
+  private async loadFinancialContext(
+    tenderId: string,
+    summary: FinanceSummaryDto
+  ): Promise<TenderFinancialContextDto> {
+    const tender = await Tender.findById(tenderId).select('estimatedValue title').lean();
+    const document = await TenderDocument.findOne({ tenderId: new Types.ObjectId(tenderId) }).sort({
+      createdAt: -1,
+    });
+
+    let params: Awaited<ReturnType<typeof enterpriseMasterDatasetAccess.getParameters>> = [];
+    let source: TenderFinancialContextDto['source'] = 'none';
+
+    if (document) {
+      try {
+        params = await enterpriseMasterDatasetAccess.getParameters(document._id, new Types.ObjectId(tenderId));
+        if (params.length > 0) source = 'nit_analysis';
+      } catch {
+        /* master dataset not ready */
+      }
+    }
+
+    const pick = (...terms: string[]) => enterpriseMasterDatasetAccess.pickValue(params, ...terms);
+
+    const bidDisplay =
+      pick('tender value', 'estimated value', 'contract value', 'estimated cost') ||
+      (tender?.estimatedValue ? String(tender.estimatedValue) : '');
+    const emdDisplay = pick('emd', 'earnest money');
+    const feeDisplay = pick('tender fee', 'document fee', 'processing fee');
+    const pbgDisplay = pick(
+      'performance security',
+      'pbg',
+      'performance bank guarantee',
+      'bank guarantee',
+      'bid security'
+    );
+    const deadline = pick('bid end', 'bid submission', 'last date', 'closing date', 'submission date');
+
+    const estimatedBidValue = parseAmount(bidDisplay) || tender?.estimatedValue || 0;
+    const requiredEmd = parseAmount(emdDisplay);
+    const tenderFee = parseAmount(feeDisplay);
+    const requiredPbg = parseAmount(pbgDisplay);
+
+    if (source === 'none' && estimatedBidValue > 0) {
+      source = 'tender_record';
+    }
+
+    const requirements: TenderFinancialRequirementDto[] = [
+      this.buildRequirement(
+        'Estimated Bid Value',
+        estimatedBidValue,
+        bidDisplay,
+        0,
+        undefined,
+        true
+      ),
+      this.buildRequirement('EMD', requiredEmd, emdDisplay, summary.emdAmount, 'EMD'),
+      this.buildRequirement('Tender Fee', tenderFee, feeDisplay, summary.tenderFeeAmount, 'TENDER_FEE'),
+      this.buildRequirement('Bank Guarantee', 0, pbgDisplay, summary.bgAmount, 'BG'),
+      this.buildRequirement(
+        'Performance BG (PBG)',
+        requiredPbg,
+        pbgDisplay,
+        summary.pbgAmount,
+        'PBG'
+      ),
+      this.buildRequirement('Demand Draft', 0, undefined, summary.ddAmount, 'DD'),
+      this.buildRequirement(
+        'Security Deposit',
+        0,
+        pick('security deposit'),
+        summary.securityDepositAmount,
+        'SECURITY_DEPOSIT'
+      ),
+    ];
+
+    const payable = requirements.filter((r) => r.status !== 'informational');
+    const totalRequired = payable.reduce((sum, r) => sum + (r.requiredAmount || 0), 0);
+    const totalTracked = payable.reduce((sum, r) => sum + r.trackedAmount, 0);
+    const totalRemaining = payable.reduce((sum, r) => sum + r.remainingAmount, 0);
+
+    return {
+      estimatedBidValue: estimatedBidValue || undefined,
+      estimatedBidValueDisplay: bidDisplay || undefined,
+      requiredEmd: requiredEmd || undefined,
+      requiredEmdDisplay: emdDisplay || undefined,
+      tenderFee: tenderFee || undefined,
+      tenderFeeDisplay: feeDisplay || undefined,
+      performanceSecurityDisplay: pbgDisplay || undefined,
+      bidSubmissionDeadline: deadline || undefined,
+      source,
+      requirements,
+      totalRequired,
+      totalTracked,
+      totalRemaining,
     };
   }
 
@@ -378,10 +525,14 @@ class FinanceTrackingService {
         currentStatus: r.status,
       }));
 
+    const summary = this.computeSummary(allRecords as unknown as IFinanceRecord[], refundDtos);
+    const financialContext = await this.loadFinancialContext(tenderId, summary);
+
     return {
       tenderId,
       tenderName: tender.title,
-      summary: this.computeSummary(allRecords as unknown as IFinanceRecord[], refundDtos),
+      financialContext,
+      summary,
       records: {
         items: records.map((r) =>
           this.mapRecord(r as unknown as IFinanceRecord, (r.createdBy as { name?: string })?.name)

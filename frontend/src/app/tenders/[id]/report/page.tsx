@@ -5,12 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { EnterpriseFeasibilityReportView } from '@/components/tender/feasibility/EnterpriseFeasibilityReportView';
 import { FeasibilityReportView } from '@/components/tender/FeasibilityReportView';
-import { Button } from '@/components/ui/button';
+import { TenderPageHeader } from '@/components/tender/TenderPageHeader';
+import { useTenderNavContext } from '@/components/tender/useTenderNavContext';
+import { ErrorState, LoadingState } from '@/components/shared/QueryState';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { getRoleDashboardPath } from '@/lib/roles';
 import { getErrorMessage } from '@/lib/errorMessage';
 import type { EnterpriseFeasibilityReport, MdFeasibilityAction } from '@/types/enterpriseFeasibilityReport';
 
@@ -18,11 +17,9 @@ export default function FeasibilityReportPage({ params }: { params: Promise<{ id
   const { id } = use(params);
   const { token, user } = useAuthStore();
   const queryClient = useQueryClient();
+  const { tender, analysisComplete, hasReport, submissionStatus } = useTenderNavContext(id);
 
-  const backHref = user?.role === 'executive' ? `/tenders/${id}` : getRoleDashboardPath(user?.role || 'executive');
-  const backLabel = user?.role === 'executive' ? 'Back to Tender' : 'Back to Dashboard';
-
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['report', id],
     queryFn: () => api.getFeasibilityReport(token!, id),
     enabled: !!token,
@@ -44,27 +41,24 @@ export default function FeasibilityReportPage({ params }: { params: Promise<{ id
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <Link href={backHref}>
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" /> {backLabel}
-          </Button>
-        </Link>
-      </div>
+      <TenderPageHeader
+        tenderId={id}
+        title={tender?.title}
+        status={tender?.status}
+        currentStage={tender?.currentStage}
+        submissionStatus={submissionStatus}
+        userRole={user?.role}
+        analysisComplete={analysisComplete}
+        hasReport={hasReport}
+        showBack
+        pageTitle="Feasibility Report"
+        pageDescription="Executive feasibility analysis and MD decision workflow."
+      />
 
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      {isLoading && <LoadingState message="Loading feasibility report…" />}
 
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-          <p className="text-red-700">{getErrorMessage(error)}</p>
-          <Link href={backHref}>
-            <Button className="mt-4" variant="outline">{backLabel}</Button>
-          </Link>
-        </div>
+      {error && !isLoading && (
+        <ErrorState error={error} onRetry={() => refetch()} title="Report not available" />
       )}
 
       {enterprise && (
@@ -80,7 +74,7 @@ export default function FeasibilityReportPage({ params }: { params: Promise<{ id
         />
       )}
 
-      {report && !enterprise && (
+      {report && !enterprise && !isLoading && (
         <FeasibilityReportView
           report={report}
           pdfUrl={pdfUrl}

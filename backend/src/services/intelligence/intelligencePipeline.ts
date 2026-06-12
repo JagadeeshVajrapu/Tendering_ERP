@@ -327,7 +327,7 @@ class IntelligencePipeline {
       });
 
       await tenderRepository.updateFromAnalysis(payload.tenderId, legacyData);
-      await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Complete');
+      await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Completed');
 
       job.status = 'completed';
       job.progress = 100;
@@ -405,7 +405,7 @@ class IntelligencePipeline {
           errorMessage: '',
           completedAt: job.completedAt,
         });
-        await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Complete');
+        await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Completed');
         this.emitComplete(payload.tenderId, payload.jobId, { phase: 'complete' }, payload.queueJobId);
         console.log('[IntelligencePipeline] Marked complete — master dataset available despite consultant error');
         return;
@@ -494,7 +494,7 @@ class IntelligencePipeline {
     });
 
     await tenderRepository.updateFromAnalysis(payload.tenderId, legacyData);
-    await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Complete');
+    await tenderRepository.setStatus(payload.tenderId, TenderStatus.NIT_ANALYZED, 'Analysis Completed');
 
     job.status = 'completed';
     job.progress = 100;

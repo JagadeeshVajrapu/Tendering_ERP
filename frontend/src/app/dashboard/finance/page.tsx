@@ -13,7 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Clock, CheckCircle, XCircle, IndianRupee, Receipt } from 'lucide-react';
+import { Clock, CheckCircle, IndianRupee, Receipt } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ErrorState, LoadingState, StatCardSkeleton } from '@/components/shared/QueryState';
 import { useState } from 'react';
 import type { FinanceRequestRecord } from '@/types';
 
@@ -22,7 +24,7 @@ export default function FinanceDashboard() {
   const qc = useQueryClient();
   const [paymentForms, setPaymentForms] = useState<Record<string, { utrNumber: string; transactionId: string }>>({});
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard', 'finance'],
     queryFn: () => api.getFinanceDashboard(token!),
     enabled: !!token,
@@ -89,17 +91,25 @@ export default function FinanceDashboard() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Finance Desk</h1>
-        <p className="text-muted-foreground">Approve EMD/BG requests and record payment details</p>
-      </div>
+      <PageHeader
+        title="Finance Desk"
+        description="Approve EMD/BG requests and record payment details."
+        icon={IndianRupee}
+        iconClassName="text-emerald-600"
+      />
 
-      <div className="mb-8 grid gap-4 md:grid-cols-4">
-        <StatCard title="Pending" value={stats?.pendingCount ?? pending.length} icon={Clock} />
-        <StatCard title="Approved" value={stats?.approvedCount ?? approved.length} icon={CheckCircle} />
-        <StatCard title="Paid" value={stats?.paidCount ?? paidHistory.length} icon={Receipt} />
-        <StatCard title="Total Paid" value={formatCurrency(stats?.totalAmountPaid ?? 0)} icon={IndianRupee} />
-      </div>
+      {isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <StatCardSkeleton count={4} />
+      ) : (
+        <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <StatCard title="Pending" value={stats?.pendingCount ?? pending.length} icon={Clock} />
+          <StatCard title="Approved" value={stats?.approvedCount ?? approved.length} icon={CheckCircle} />
+          <StatCard title="Paid" value={stats?.paidCount ?? paidHistory.length} icon={Receipt} />
+          <StatCard title="Total Paid" value={formatCurrency(stats?.totalAmountPaid ?? 0)} icon={IndianRupee} />
+        </div>
+      )}
 
       <Tabs defaultValue="pending">
         <TabsList>
@@ -109,8 +119,8 @@ export default function FinanceDashboard() {
         </TabsList>
 
         <TabsContent value="pending" className="mt-6 space-y-4">
-          {isLoading && <p>Loading...</p>}
-          {pending.map((req) => (
+          {isLoading && <LoadingState message="Loading finance requests…" />}
+          {!isLoading && pending.map((req) => (
             <Card key={req._id}>
               <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
                 <div>
@@ -123,8 +133,8 @@ export default function FinanceDashboard() {
                   <p className="text-xs text-muted-foreground">{formatDate(req.createdAt)}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => decide.mutate({ id: req._id, approved: true })}>Approve</Button>
-                  <Button size="sm" variant="destructive" onClick={() => decide.mutate({ id: req._id, approved: false })}>Reject</Button>
+                  <Button size="sm" onClick={() => decide.mutate({ id: req._id, approved: true })} disabled={decide.isPending}>Approve</Button>
+                  <Button size="sm" variant="destructive" onClick={() => decide.mutate({ id: req._id, approved: false })} disabled={decide.isPending}>Reject</Button>
                 </div>
               </CardContent>
             </Card>

@@ -25,16 +25,6 @@ const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/ap
   ''
 );
 
-function statusBadge(status: SubmissionTrackingStatus) {
-  const map: Record<SubmissionTrackingStatus, string> = {
-    draft: 'bg-slate-100 text-slate-700',
-    ready: 'bg-blue-100 text-blue-800',
-    locked: 'bg-amber-100 text-amber-900',
-    submitted: 'bg-emerald-100 text-emerald-800',
-  };
-  return map[status] || map.draft;
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
@@ -71,9 +61,36 @@ export function SubmissionTrackingView({ token, tenderId, canEdit }: Props) {
   const dashboard: SubmissionTrackingDashboard | null = data?.data ?? null;
   const timeline = timelineRes?.data ?? [];
 
-  const invalidate = () => {
+  const invalidate = (refreshTender = false) => {
     void queryClient.invalidateQueries({ queryKey: ['submission-tracking', tenderId] });
     void queryClient.invalidateQueries({ queryKey: ['submission-timeline', tenderId] });
+    if (refreshTender) {
+      void queryClient.invalidateQueries({ queryKey: ['tender', tenderId] });
+      void queryClient.invalidateQueries({ queryKey: ['tenders'] });
+    }
+  };
+
+  const applySubmittedCache = () => {
+    queryClient.setQueryData(['submission-tracking', tenderId], (old: { data?: SubmissionTrackingDashboard } | undefined) => {
+      if (!old?.data) return old;
+      return {
+        ...old,
+        data: {
+          ...old.data,
+          submissionStatus: 'submitted' as SubmissionTrackingStatus,
+          readinessLabel: 'Submitted to portal',
+          tenderStatus: 'SUBMITTED',
+          locked: true,
+        },
+      };
+    });
+    queryClient.setQueryData(['tender', tenderId], (old: { data?: { status?: string; currentStage?: string } } | undefined) => {
+      if (!old?.data) return old;
+      return {
+        ...old,
+        data: { ...old.data, status: 'SUBMITTED', currentStage: 'Submitted' },
+      };
+    });
   };
 
   const onSuccess = (msg: string) => {
@@ -97,7 +114,13 @@ export function SubmissionTrackingView({ token, tenderId, canEdit }: Props) {
 
   const submitMutation = useMutation({
     mutationFn: () => api.markSubmissionSubmitted(token, tenderId, notes.trim() || undefined),
-    onSuccess: () => onSuccess('Tender marked as submitted'),
+    onSuccess: () => {
+      setError('');
+      setMessage('Tender marked as submitted');
+      applySubmittedCache();
+      invalidate(true);
+      void refetch();
+    },
     onError: (err) => setError(getErrorMessage(err, 'Failed to mark submitted')),
   });
 
@@ -155,15 +178,7 @@ export function SubmissionTrackingView({ token, tenderId, canEdit }: Props) {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {message && <p className="text-sm text-emerald-700">{message}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Submission status</p>
-          <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm font-semibold capitalize ${statusBadge(dashboard.submissionStatus)}`}>
-            {dashboard.submissionStatus}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">{dashboard.readinessLabel}</p>
-        </div>
-
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Completion</p>
           <p className="mt-2 text-3xl font-bold text-blue-900">{dashboard.completionPercentage}%</p>

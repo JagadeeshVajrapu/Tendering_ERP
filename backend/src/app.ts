@@ -17,6 +17,9 @@ import tenderExtractionRoutes from './routes/tenderExtractionRoutes';
 import debugRoutes from './routes/debugRoutes';
 import documentRoutes from './routes/documentRoutes';
 import financeWorkflowRoutes from './routes/financeWorkflowRoutes';
+import postAwardRoutes from './routes/postAwardRoutes';
+import misRoutes from './routes/misRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 const app = express();
 
@@ -70,6 +73,9 @@ app.use('/api/tenders', tenderAnalysisRoutes);
 app.use('/api/tenders', tenderRoutes);
 app.use('/api/approvals', approvalRoutes);
 app.use('/api/finance', financeWorkflowRoutes);
+app.use('/api/post-award', postAwardRoutes);
+app.use('/api/mis', misRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/tender', tenderExtractionRoutes);

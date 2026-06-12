@@ -1,4 +1,4 @@
-export type UserRole = 'executive' | 'md' | 'finance' | 'manager';
+export type UserRole = 'executive' | 'md' | 'finance' | 'manager' | 'admin';
 
 export type TenderStatus =
   | 'DRAFT'
@@ -12,7 +12,9 @@ export type TenderStatus =
   | 'FINANCE_REJECTED'
   | 'MANAGER_PENDING'
   | 'MANAGER_APPROVED'
-  | 'READY_FOR_BID';
+  | 'READY_FOR_BID'
+  | 'SUBMITTED'
+  | 'AWARDED';
 
 export interface User {
   id: string;

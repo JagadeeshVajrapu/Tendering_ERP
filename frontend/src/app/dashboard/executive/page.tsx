@@ -4,24 +4,27 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ErrorState, ListSkeleton, StatCardSkeleton } from '@/components/shared/QueryState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { statusColor, formatCurrency, formatDate } from '@/lib/utils';
-import { FileText, Clock, CheckCircle, XCircle, IndianRupee, Rocket, Plus } from 'lucide-react';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { getTenderDisplayLabel, statusColor } from '@/lib/tenderStatus';
+import { FileText, Clock, CheckCircle, XCircle, IndianRupee, Rocket, Plus, LayoutDashboard } from 'lucide-react';
 import type { Tender, FinanceRequestRecord } from '@/types';
 
 export default function ExecutiveDashboard() {
   const { token } = useAuthStore();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dashboard', 'executive'],
     queryFn: () => api.getDashboardStats(token!),
     enabled: !!token,
   });
 
-  const { data: financeData } = useQuery({
+  const { data: financeData, isLoading: financeLoading } = useQuery({
     queryKey: ['executive-finance'],
     queryFn: () => api.getFinanceRequests(token!),
     enabled: !!token,
@@ -29,87 +32,97 @@ export default function ExecutiveDashboard() {
 
   const stats = data?.data;
   const myPayments = (financeData?.data || []).filter((r) => r.utrNumber || r.transactionId).slice(0, 5);
+  const recent = (stats?.recentActivities as Tender[]) || [];
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Executive Dashboard</h1>
-          <p className="text-muted-foreground">Manage tenders, AI analysis, and approvals</p>
-        </div>
-        <Link href="/tenders/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> New Tender
-          </Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Executive Dashboard"
+        description="Manage tenders, AI analysis, submissions, and track approvals."
+        icon={LayoutDashboard}
+        actions={
+          <Link href="/tenders/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> New Tender
+            </Button>
+          </Link>
+        }
+      />
 
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-xl bg-slate-200" />
-          ))}
-        </div>
+      {isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} />
+      ) : isLoading ? (
+        <StatCardSkeleton count={6} />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <StatCard title="Total Tenders" value={stats?.totalTenders as number || 0} icon={FileText} />
-          <StatCard title="Pending Approval" value={stats?.pendingApproval as number || 0} icon={Clock} />
-          <StatCard title="Approved" value={stats?.approved as number || 0} icon={CheckCircle} />
-          <StatCard title="Rejected" value={stats?.rejected as number || 0} icon={XCircle} />
-          <StatCard title="Finance Pending" value={stats?.financePending as number || 0} icon={IndianRupee} />
-          <StatCard title="Ready for Bid" value={stats?.readyForBid as number || 0} icon={Rocket} />
+          <StatCard title="Total Tenders" value={(stats?.totalTenders as number) || 0} icon={FileText} />
+          <StatCard title="Pending Approval" value={(stats?.pendingApproval as number) || 0} icon={Clock} />
+          <StatCard title="Approved" value={(stats?.approved as number) || 0} icon={CheckCircle} />
+          <StatCard title="Rejected" value={(stats?.rejected as number) || 0} icon={XCircle} />
+          <StatCard title="Finance Pending" value={(stats?.financePending as number) || 0} icon={IndianRupee} />
+          <StatCard title="Ready for Bid" value={(stats?.readyForBid as number) || 0} icon={Rocket} />
         </div>
       )}
 
-      <Card className="mt-8">
+      <Card className="mt-8 border-slate-100 shadow-sm">
         <CardHeader>
-          <CardTitle>Recent Activities</CardTitle>
+          <CardTitle className="text-base">Recent Tenders</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {((stats?.recentActivities as Tender[]) || []).map((tender) => (
-              <Link
-                key={tender._id}
-                href={`/tenders/${tender._id}`}
-                className="flex items-center justify-between rounded-lg border p-4 hover:bg-slate-50"
-              >
-                <div>
-                  <p className="font-medium">{tender.title}</p>
-                  <p className="text-sm text-muted-foreground">{tender.authority || tender.tenderNumber}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor(tender.status)}`}>
-                    {tender.currentStage}
-                  </span>
-                  <p className="mt-1 text-sm">{formatCurrency(tender.estimatedValue)}</p>
-                </div>
+          {isLoading ? (
+            <ListSkeleton rows={4} />
+          ) : recent.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No tenders yet.{' '}
+              <Link href="/tenders/new" className="font-medium text-blue-600 hover:underline">
+                Create your first tender
               </Link>
-            ))}
-            {(!stats?.recentActivities || (stats.recentActivities as Tender[]).length === 0) && (
-              <p className="py-8 text-center text-muted-foreground">No tenders yet. Create your first tender.</p>
-            )}
-          </div>
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {recent.map((tender) => (
+                <Link
+                  key={tender._id}
+                  href={`/tenders/${tender._id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-100 p-4 transition-colors hover:border-blue-100 hover:bg-blue-50/40"
+                >
+                  <div className="min-w-0 pr-4">
+                    <p className="truncate font-medium">{tender.title}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {tender.authority || tender.tenderNumber}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusColor(tender.status)}`}>
+                    {getTenderDisplayLabel(tender.status, tender.currentStage)}
+                  </span>
+                    <p className="mt-1 text-sm font-medium">{formatCurrency(tender.estimatedValue)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {myPayments.length > 0 && (
-        <Card className="mt-8">
+      {financeLoading ? null : myPayments.length > 0 && (
+        <Card className="mt-8 border-slate-100 shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Payments</CardTitle>
+            <CardTitle className="text-base">Recent Payments</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2">
             {myPayments.map((req: FinanceRequestRecord) => (
               <Link
                 key={req._id}
                 href={`/tenders/${typeof req.tenderId === 'object' ? req.tenderId?._id : req.tenderId}`}
-                className="flex items-center justify-between rounded-lg border p-4 hover:bg-slate-50"
+                className="flex items-center justify-between rounded-lg border border-slate-100 p-4 transition-colors hover:bg-slate-50"
               >
                 <div>
                   <p className="font-medium">{req.tenderId?.title || 'Tender'}</p>
                   <p className="text-sm text-muted-foreground">
                     {req.requestType} · {formatCurrency(req.amount)}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-green-700">
+                  <p className="mt-1 font-mono text-xs text-emerald-700">
                     UTR: {req.utrNumber || req.transactionId}
                   </p>
                 </div>

@@ -11,21 +11,11 @@ import { NitAnalysisParametersTable } from '@/components/tender/NitAnalysisParam
 import { TenderWorkflowPanel } from '@/components/tender/TenderWorkflowPanel';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { statusColor } from '@/lib/utils';
 import type { IntelligenceJob } from '@/types';
 import Link from 'next/link';
-import {
-  Upload,
-  FileText,
-  Send,
-  IndianRupee,
-  Shield,
-  Loader2,
-  RefreshCw,
-  FileSearch,
-  FolderOpen,
-  ClipboardCheck,
-} from 'lucide-react';
+import { Upload, FileText, Send, IndianRupee, Shield, Loader2, FileSearch } from 'lucide-react';
+import { TenderPageHeader } from '@/components/tender/TenderPageHeader';
+import { LoadingState } from '@/components/shared/QueryState';
 import { io, type Socket } from 'socket.io-client';
 import { getErrorMessage } from '@/lib/errorMessage';
 
@@ -51,10 +41,20 @@ export default function TenderDetailPage({ params }: { params: Promise<{ id: str
   const [lastDocumentId, setLastDocumentId] = useState<string | null>(null);
   const [liveJob, setLiveJob] = useState<IntelligenceJob | null>(null);
 
-  const { data: tenderData } = useQuery({
+  const { data: tenderData, isLoading: tenderLoading } = useQuery({
     queryKey: ['tender', id],
     queryFn: () => api.getTender(token!, id),
     enabled: !!token,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: submissionData } = useQuery({
+    queryKey: ['submission-tracking', id],
+    queryFn: () => api.getSubmissionTrackingDashboard(token!, id),
+    enabled: !!token,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: analysisData, refetch: refetchAnalysis } = useQuery({
@@ -187,6 +187,7 @@ export default function TenderDetailPage({ params }: { params: Promise<{ id: str
   });
 
   const tender = tenderData?.data;
+  const submissionStatus = submissionData?.data?.submissionStatus;
   const intelligence = analysisData?.data?.intelligence;
   const job = liveJob || analysisData?.data?.job;
   const hasReport = !!analysisData?.data?.report;
@@ -212,82 +213,32 @@ export default function TenderDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [analysisComplete, token, id, qc]);
 
+  if (tenderLoading && !tender) {
+    return (
+      <DashboardLayout>
+        <LoadingState message="Loading tender…" />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{tender?.title}</h1>
-          <span
-            className={`mt-2 inline-block rounded-full px-3 py-1 text-sm font-medium ${statusColor(tender?.status || '')}`}
-          >
-            {tender?.currentStage}
-          </span>
-        </div>
-
-        <div className="flex max-w-xl flex-col items-end gap-2">
-          <div className="flex flex-wrap justify-end gap-2">
-            {user?.role === 'executive' && (
-              <Link href={`/tenders/${id}/submission-tracking`}>
-                <Button className="bg-blue-700 hover:bg-blue-800">
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
-                  Submission Tracking
-                </Button>
-              </Link>
-            )}
-            {(user?.role === 'executive' ||
-              user?.role === 'manager' ||
-              user?.role === 'finance') && (
-              <Link href={`/tenders/${id}/finance-tracking`}>
-                <Button variant="outline">
-                  <IndianRupee className="mr-2 h-4 w-4" />
-                  Finance Tracking
-                </Button>
-              </Link>
-            )}
-            <Link href={`/tenders/${id}/document-preparation`}>
-              <Button variant="outline">
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Document Preparation
-              </Button>
-            </Link>
-            {analysisComplete && (
-              <Link href={`/tenders/${id}/nit-analysis`}>
-                <Button variant="outline">
-                  <FileText className="mr-2 h-4 w-4" />
-                  NIT Analysis
-                </Button>
-              </Link>
-            )}
-            {hasReport && (
-              <Link href={`/tenders/${id}/report`}>
-                <Button variant="outline">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Feasibility Report
-                </Button>
-              </Link>
-            )}
-          </div>
-          {analysisComplete && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => reanalyze.mutate()}
-              disabled={reanalyze.isPending || !!jobRunning}
-            >
-              {reanalyze.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Re-analyze tender
-            </Button>
-          )}
-        </div>
-      </div>
+      <TenderPageHeader
+        tenderId={id}
+        title={tender?.title}
+        status={tender?.status}
+        currentStage={tender?.currentStage}
+        submissionStatus={submissionStatus}
+        userRole={user?.role}
+        analysisComplete={analysisComplete}
+        hasReport={hasReport}
+        onReanalyze={() => reanalyze.mutate()}
+        reanalyzePending={reanalyze.isPending}
+        reanalyzeDisabled={!!jobRunning}
+      />
 
       <div className="mb-8 grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="border-slate-100 shadow-sm lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" /> Upload Tender Document
@@ -330,9 +281,9 @@ export default function TenderDetailPage({ params }: { params: Promise<{ id: str
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-slate-100 shadow-sm">
           <CardHeader>
-            <CardTitle>Workflow Actions</CardTitle>
+            <CardTitle className="text-base">Workflow Actions</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <Button
